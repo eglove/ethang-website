@@ -439,7 +439,12 @@ hr {
   overflow-inline: auto;
 }
 
+/* Highlighted blocks carry their own inline colours per span; the outer
+ * `<code>` only supplies the base colour for runs a grammar left unstyled
+ * (plain text, and diagram source), which must read as body text, not as
+ * the green used for inline code. */
 .blog-prose pre code {
+  color: var(--night-owl-fg);
   background: transparent;
   padding: 0;
 }
