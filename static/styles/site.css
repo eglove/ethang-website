@@ -1,0 +1,520 @@
+/* ethang.dev — hand-written CSS.
+ *
+ * Palette and type scale are ported verbatim from the Astro site's
+ * src/styles/global.css (@theme block). No Tailwind, no preprocessor, no
+ * build step: this file is served as written.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ── Night Owl palette ─────────────────────────────────────────────── */
+  --night-owl-bg: #011627; /* base background                             */
+  --night-owl-surface: #0b3553; /* elevated surface (cards, panels)       */
+  --night-owl-border: rgba(127, 219, 202, 0.2);
+
+  --night-owl-fg: #d6deeb; /* primary foreground / body text                */
+  --night-owl-muted: #9aaebc; /* secondary text with readable contrast     */
+
+  /* syntax-highlighting palette — also usable as semantic tokens */
+  --night-owl-purple: #c792ea; /* keywords, emphasis                       */
+  --night-owl-comment: #637777; /* comments                               */
+  --night-owl-green: #c5e478; /* variables, constants, built-ins          */
+  --night-owl-blue: #82aaff; /* types, functions, meta                    */
+  --night-owl-cyan: #7fdbca; /* attributes, tags, params                  */
+  --night-owl-red: #ff5874; /* literals                                  */
+  --night-owl-orange: #f78c6c; /* numbers                                */
+  --night-owl-yellow: #ecc48d; /* strings                                */
+  --night-owl-peach: #ffcb8b; /* classes                                 */
+  --night-owl-mint: #d9f5dd; /* punctuation, bullets                     */
+
+  /* ── Semantic tokens (derived from Night Owl) ──────────────────────── */
+  --primary: var(--night-owl-blue);
+  --secondary: var(--night-owl-cyan);
+  --accent: var(--night-owl-purple);
+  --success: var(--night-owl-green);
+  --warning: var(--night-owl-yellow);
+  --danger: var(--night-owl-red);
+  --on-primary: var(--night-owl-bg);
+
+  /* ── Typography families ───────────────────────────────────────────── */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Type scale (size / line-height) ───────────────────────────────── */
+  --text-xs: 0.75rem;
+  --text-xs-line: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm-line: 1.25rem;
+  --text-base: 1rem;
+  --text-base-line: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg-line: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl-line: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl-line: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl-line: 2.25rem;
+  --text-4xl: 2.25rem;
+  --text-4xl-line: 2.5rem;
+
+  /* ── Measures ──────────────────────────────────────────────────────── */
+  /* The Astro layout capped content at max-w-6xl (72rem) with a 4/6/8
+   * step padding scale; these replace those fixed utility strings. */
+  --page-max: 72rem;
+  --page-pad: 1rem;
+  --prose-measure: 68ch;
+
+  /* ── Spacing ───────────────────────────────────────────────────────── */
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* ── Radii and elevation ───────────────────────────────────────────── */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --shadow-card: 0 1.25rem 3rem rgba(0, 0, 0, 0.16);
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --page-pad: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --page-pad: 2rem;
+  }
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────── */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: var(--night-owl-bg);
+  color: var(--night-owl-fg);
+  overflow-block: scroll;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100vb;
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--text-base-line);
+  background-color: var(--night-owl-bg);
+  background-image:
+    linear-gradient(135deg, rgba(130, 170, 255, 0.05) 0 1px, transparent 1px 100%),
+    radial-gradient(circle at 85% -10%, rgba(199, 146, 234, 0.12), transparent 32rem),
+    radial-gradient(circle at 5% 20%, rgba(127, 219, 202, 0.06), transparent 28rem);
+  background-size:
+    4rem 4rem,
+    auto,
+    auto;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-block: 0;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--night-owl-fg);
+  text-wrap: balance;
+}
+
+p {
+  margin-block: 0;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9375em;
+}
+
+hr {
+  border: 0;
+  border-block-start: 1px solid var(--night-owl-border);
+}
+
+:focus-visible {
+  outline: 2px solid var(--night-owl-cyan);
+  outline-offset: 3px;
+}
+
+::selection {
+  background-color: rgba(130, 170, 255, 0.3);
+  color: var(--night-owl-fg);
+}
+
+/* ── Site chrome ──────────────────────────────────────────────────────── */
+
+.site-header {
+  max-inline-size: var(--page-max);
+  margin-inline: auto;
+  inline-size: 100%;
+  padding-inline: var(--page-pad);
+  padding-block-start: 1.25rem;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) 1.25rem;
+  padding-block-end: var(--space-md);
+  border-block-end: 1px solid var(--night-owl-border);
+}
+
+.site-mark {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--night-owl-fg);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.site-mark:hover {
+  color: var(--secondary);
+}
+
+.site-mark__tilde {
+  color: var(--night-owl-cyan);
+}
+
+.site-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav a {
+  position: relative;
+  color: var(--night-owl-fg);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.site-nav a:hover {
+  color: var(--primary);
+}
+
+.site-nav a[aria-current="page"] {
+  color: var(--primary);
+}
+
+.site-nav a[aria-current="page"]::after {
+  position: absolute;
+  inset: auto 0 -0.5rem 0;
+  block-size: 2px;
+  background-color: var(--primary);
+  content: "";
+}
+
+.page {
+  max-inline-size: var(--page-max);
+  margin-inline: auto;
+  inline-size: 100%;
+  padding-inline: var(--page-pad);
+  padding-block: var(--space-xl);
+}
+
+.site-footer {
+  max-inline-size: var(--page-max);
+  margin-inline: auto;
+  inline-size: 100%;
+  padding-inline: var(--page-pad);
+  padding-block: var(--space-lg) var(--space-2xl);
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.site-footer .section-rule {
+  margin-block-end: var(--space-md);
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-footer a {
+  color: var(--night-owl-muted);
+  text-decoration: none;
+  transition: color 120ms ease;
+}
+
+.site-footer a:hover {
+  color: var(--primary);
+}
+
+/* ── Shared surfaces and rules ────────────────────────────────────────── */
+
+.surface-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--night-owl-border);
+  background-color: var(--night-owl-surface);
+}
+
+.surface-card::before {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: -1;
+  inline-size: 5rem;
+  block-size: 2px;
+  background: linear-gradient(90deg, var(--night-owl-cyan), transparent);
+  content: "";
+}
+
+.surface-card::after {
+  position: absolute;
+  inset: 0 0 auto auto;
+  z-index: -1;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-block-start: 1px solid rgba(127, 219, 202, 0.32);
+  border-inline-end: 1px solid rgba(127, 219, 202, 0.32);
+  clip-path: polygon(100% 0, 100% 100%, 0 0);
+  content: "";
+}
+
+.surface-card-tint {
+  background-image: linear-gradient(135deg, rgba(130, 170, 255, 0.08), transparent 42%);
+}
+
+.prose-muted {
+  color: var(--night-owl-muted);
+}
+
+.section-kicker {
+  color: var(--night-owl-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.section-rule {
+  block-size: 1px;
+  background: linear-gradient(90deg, var(--night-owl-border), transparent);
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Blog prose (article content) ─────────────────────────────────────── */
+
+.blog-prose {
+  max-inline-size: var(--prose-measure);
+  line-height: 1.7;
+}
+
+.blog-prose h1 {
+  font-size: var(--text-3xl);
+  line-height: var(--text-3xl-line);
+  margin-block: var(--space-lg) var(--space-sm);
+}
+
+.blog-prose h2 {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl-line);
+  margin-block: var(--space-lg) var(--space-sm);
+}
+
+.blog-prose h3 {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl-line);
+  margin-block: 1.25rem var(--space-xs);
+}
+
+.blog-prose h4 {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-line);
+  margin-block: var(--space-md) var(--space-xs);
+}
+
+.blog-prose p {
+  color: var(--night-owl-fg);
+  margin-block: var(--space-sm);
+  line-height: 1.7;
+}
+
+.blog-prose a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.blog-prose a:hover {
+  text-decoration: none;
+}
+
+.blog-prose code {
+  color: var(--night-owl-green);
+  background: var(--night-owl-bg);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+}
+
+.blog-prose pre {
+  background: var(--night-owl-bg);
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  overflow-inline: auto;
+}
+
+.blog-prose pre code {
+  background: transparent;
+  padding: 0;
+}
+
+/* Quotations (scripture, cited passages) read as highlighted source
+ * material: an accent bar on the reading-start edge plus a panel tint. */
+.blog-prose blockquote {
+  border-inline-start: 3px solid var(--primary);
+  background: var(--night-owl-bg);
+  border-radius: 0.375rem;
+  margin-block: var(--space-md);
+  margin-inline: 0;
+  padding: 0.75rem var(--space-md);
+}
+
+.blog-prose blockquote p {
+  margin-block: var(--space-2xs);
+}
+
+/* A bare reset strips list markers; restore them for article lists.
+ * list-style-type longhand on purpose: the `disc` shorthand collapses to
+ * `list-style: outside`, which loses the marker. */
+.blog-prose ul {
+  list-style-type: disc;
+  margin-block: var(--space-sm);
+  padding-inline-start: var(--space-lg);
+}
+
+.blog-prose ol {
+  list-style-type: decimal;
+  margin-block: var(--space-sm);
+  padding-inline-start: var(--space-lg);
+}
+
+.blog-prose li {
+  margin-block: 0.375rem;
+}
+
+.blog-prose img {
+  border-radius: var(--radius-md);
+  margin-block: 1.25rem;
+}
+
+.blog-prose figcaption {
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+  margin-block-start: var(--space-xs);
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Print ────────────────────────────────────────────────────────────── */
+
+@media print {
+  body {
+    background-image: none;
+  }
+
+  .site-nav,
+  .site-footer {
+    display: none;
+  }
+}
