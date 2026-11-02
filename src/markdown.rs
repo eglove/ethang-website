@@ -41,6 +41,33 @@ pub struct RenderCtx<'a> {
 const INLINE_MATH: char = '\u{e000}';
 const DISPLAY_MATH: char = '\u{e001}';
 
+/// Smartypants for text that never reaches the markdown parser.
+///
+/// A component's children are HTML by the time the parser sees them, so the
+/// `ENABLE_SMART_PUNCTUATION` option cannot reach the prose inside a
+/// `<Blockquote>`. Astro rendered those children through its own markdown
+/// pipeline, which did curl them - the parable posts are written in straight
+/// quotes and depend on it - so the same transform is applied here by running
+/// the body through pulldown-cmark as a one-paragraph document and taking the
+/// text back out. Reusing the parser keeps one definition of "smart" instead
+/// of a second, subtly different implementation.
+fn smart_typography(text: &str) -> String {
+    if !text.contains(['"', '\'', '.', '-']) {
+        return text.to_string();
+    }
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);
+    let mut out = String::with_capacity(text.len());
+    for event in Parser::new_ext(text, options) {
+        match event {
+            Event::Text(text) => out.push_str(&text),
+            Event::SoftBreak | Event::HardBreak => out.push(' '),
+            _ => {}
+        }
+    }
+    out
+}
+
 /// Render a post body to HTML.
 pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
     let expanded = expand_components(body, ctx.asset_url)
@@ -52,6 +79,11 @@ pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
     options.insert(Options::ENABLE_STRIKETHROUGH);
     options.insert(Options::ENABLE_TASKLISTS);
     options.insert(Options::ENABLE_FOOTNOTES);
+    // Astro's markdown pipeline ran smartypants, which curled quotes,
+    // apostrophes, dashes, and ellipses. The content was written against that
+    // output and the prose reads wrong without it: "Half Right" opens on a
+    // quote that would otherwise render as a straight ASCII pair.
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);
 
     let mut events: Vec<Event<'_>> = Vec::new();
     let mut language = String::new();
@@ -212,17 +244,32 @@ fn protect_inline_math(text: &str, store: &mut MathStore) -> String {
     out
 }
 
-/// Inline math is a tight span that does not open on a digit, which is what
-/// separates `$u(x, t)$` from `$0.078/M`.
+/// Inline math is a tight span on one line; anything else is prose that
+/// happened to bracket two dollar signs.
+///
+/// A span that opens on a digit is the hard case, because prices outnumber
+/// expressions in this corpus: `$0.10/M` and `$9.85` are money, while
+/// `$0 \lt h \lt 0.01$` and `$1/2-h$` are TeX. Two shapes separate them
+/// without a heuristic on the content. Real TeX that opens on a digit carries
+/// a command, which prose prices do not, or it is a tight expression with no
+/// whitespace at all, which a price with a unit or a following word never is.
+/// Most prices are written escaped (`\$9.85`) precisely so they cannot pair
+/// up, so this only ever sees the stray ones.
 fn looks_like_inline_math(latex: &str) -> bool {
     if latex.is_empty() || latex.len() > 400 {
         return false;
     }
-    let starts_with_digit = latex.starts_with(|ch: char| ch.is_ascii_digit());
-    !starts_with_digit
-        && !latex.starts_with(char::is_whitespace)
-        && !latex.ends_with(char::is_whitespace)
-        && !latex.contains('\n')
+    if latex.starts_with(char::is_whitespace)
+        || latex.ends_with(char::is_whitespace)
+        || latex.contains('\n')
+    {
+        return false;
+    }
+    if latex.starts_with(|ch: char| ch.is_ascii_digit()) {
+        let tight = latex.len() <= 20 && !latex.contains(char::is_whitespace);
+        return latex.contains('\\') || tight;
+    }
+    true
 }
 
 /// Replace the placeholders in the rendered HTML with the caller's math output.
@@ -542,9 +589,12 @@ fn render_blockquote(attrs: &[(String, AttrValue)], inner: &str) -> String {
     let author = text_attr(attrs, "author");
     let source = text_attr(attrs, "source");
     let source_url = text_attr(attrs, "sourceUrl");
-    let body = inner.trim();
+    // The children are prose, not markup: every quote in the corpus is a
+    // single paragraph, so they are escaped as text and curled the way Astro
+    // curled them before they were ever written as HTML.
+    let body = smart_typography(inner.trim());
 
-    let mut children = vec![format!("<p>{}</p>", escape(body))];
+    let mut children = vec![format!("<p>{}</p>", escape(&body))];
     if author.is_some() || source.is_some() {
         let mut footer = String::from("\u{2014} ");
         if let Some(author) = &author {
@@ -803,7 +853,9 @@ fn render_heading(attrs: &[(String, AttrValue)], inner: &str) -> String {
         "h1" | "h3" | "h4" => level,
         _ => "h2".to_string(),
     };
-    el(&tag, &[], &[escape(inner.trim())])
+    // Same reason as a blockquote: the children are prose that never reaches
+    // the parser, and the old component's `<slot />` was rendered through it.
+    el(&tag, &[], &[escape(&smart_typography(inner.trim()))])
 }
 
 /// Translate the JSX-only attribute syntax MDX accepted and HTML does not:
@@ -1030,6 +1082,49 @@ mod tests {
     }
 
     #[test]
+    fn curls_the_quotes_in_a_blockquote_body() {
+        // Astro rendered a component's children through its markdown pipeline,
+        // so a straight quote inside a `<Blockquote>` shipped curled. The
+        // parable posts are written in straight quotes and depend on it.
+        let body = r#"<Blockquote author="Luke">And he said, "There was a man." And he said, 'Father.'</Blockquote>"#;
+        let out = render_markdown(body, &ctx(&no_highlight, &no_math));
+        assert!(
+            out.contains("\u{201C}There was a man.\u{201D}"),
+            "the double quotes were not curled: {out}"
+        );
+        assert!(
+            out.contains("\u{2018}Father.\u{2019}"),
+            "the single quotes were not curled: {out}"
+        );
+    }
+
+    #[test]
+    fn curls_the_quotes_in_a_heading() {
+        let body = r#"<Heading as="h2">The Problem With "Auto"</Heading>"#;
+        let out = render_markdown(body, &ctx(&no_highlight, &no_math));
+        assert!(
+            out.contains("<h2>The Problem With \u{201C}Auto\u{201D}</h2>"),
+            "heading: {out}"
+        );
+    }
+
+    #[test]
+    fn curls_quotes_and_dashes_in_prose() {
+        // The option that makes the parser do this is easy to lose in a
+        // refactor, and losing it is invisible until a post reads wrong.
+        let out = render_markdown(
+            "It doesn't -- really... \"no\".",
+            &ctx(&no_highlight, &no_math),
+        );
+        assert!(out.contains("doesn\u{2019}t"), "apostrophe: {out}");
+        // A doubled hyphen becomes an en dash, not an em dash; the corpus
+        // writes its em dashes as the character itself, which passes through.
+        assert!(out.contains("\u{2013}"), "dash: {out}");
+        assert!(out.contains("\u{2026}"), "ellipsis: {out}");
+        assert!(out.contains("\u{201C}no\u{201D}"), "quotes: {out}");
+    }
+
+    #[test]
     fn expands_blockquote_with_attribution() {
         let body = r#"<Blockquote author="Ryan" source="dev.to" sourceUrl="https://dev.to/x">Quote text.</Blockquote>"#;
         let out = render_markdown(body, &ctx(&no_highlight, &no_math));
@@ -1151,12 +1246,48 @@ mod tests {
 
     #[test]
     fn leaves_currency_amounts_as_text() {
+        // Prices outnumber expressions in this corpus, so a digit-initial span
+        // has to be told apart from TeX. A price that opens on a digit carries
+        // whitespace or punctuation through to the next word.
         let out = render_markdown(
-            "Costs $0.078/M today and the $1/2-h exponent tomorrow.",
+            "It costs $9.85 total, or $0.10/M.",
             &ctx(&no_highlight, &no_math),
         );
         assert!(!out.contains("<math"), "currency became math: {out}");
-        assert!(out.contains("$0.078/M"), "currency text lost: {out}");
+        assert!(out.contains("$9.85 total"), "currency text lost: {out}");
+    }
+
+    #[test]
+    fn an_escaped_dollar_never_opens_a_span() {
+        // The corpus writes most prices escaped for exactly this reason.
+        let out = render_markdown(
+            "The total cost was \\$9.85. That's \\$0.05 per million.",
+            &ctx(&no_highlight, &no_math),
+        );
+        assert!(
+            !out.contains("<math"),
+            "an escaped dollar became math: {out}"
+        );
+        assert!(out.contains("$9.85"), "the amount is lost: {out}");
+    }
+
+    #[test]
+    fn renders_math_that_opens_on_a_digit() {
+        // `$0 \\lt h \\lt 0.01$` and `$1/2-h$` are TeX: the first carries a
+        // command, the second is a tight expression. Both used to ship as
+        // literal text because every digit-initial span was assumed to be
+        // money, which silently lost two formulas from a published post.
+        let out = render_markdown(
+            "With $0 \\lt h \\lt 0.01$ and the $1/2-h$ exponent.",
+            &ctx(&no_highlight, &no_math),
+        );
+        assert!(!out.contains("$0 \\lt"), "TeX shipped as text: {out}");
+        assert!(!out.contains("$1/2-h$"), "TeX shipped as text: {out}");
+        assert_eq!(
+            out.matches("<math").count(),
+            2,
+            "expected two math spans: {out}"
+        );
     }
 
     #[test]

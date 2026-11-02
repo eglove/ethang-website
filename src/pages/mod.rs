@@ -231,6 +231,9 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
     // The 404 is served by the host, not linked, so it stays out of `routes`.
     write_text(&out.join("sitemap.xml"), &sitemap::render(&routes))?;
     write_text(&out.join("robots.txt"), sitemap::ROBOTS)?;
+    // The host answers these before it looks for a file, so the file is the
+    // whole implementation: no page is written for either path.
+    write_text(&out.join("_redirects"), REDIRECTS)?;
     Ok(())
 }
 
@@ -347,6 +350,18 @@ pub fn not_found_doc() -> Doc {
         body,
     }
 }
+
+/// The redirects the old site answered with a status code rather than a page.
+///
+/// The Courses page became Learn. The old site kept the old path working with
+/// a `_redirects` rule that the host answers with a 301, and Cloudflare's
+/// static assets support the same file, so the rule is ported verbatim. Both
+/// spellings are listed because the old file listed both: a bare `/courses`
+/// and a trailing-slash `/courses/` arrive as different paths.
+///
+/// A redirect is not a destination, so it never reaches `routes`: `/learn` is
+/// the URL worth indexing, and the old sitemap skipped `/courses` too.
+pub const REDIRECTS: &str = "/courses/    /learn    301\n/courses     /learn    301\n";
 
 /// Write one rendered document, creating the directories it needs.
 fn write_page(path: &Path, doc: &Doc) -> anyhow::Result<()> {
@@ -697,6 +712,31 @@ mod tests {
             published.iter().any(|name| name.ends_with(".webp")),
             "no webp variants: {published:?}"
         );
+    }
+
+    #[test]
+    fn the_courses_redirect_answers_both_spellings() {
+        // The host matches these paths before it looks for a file, so the
+        // rule is the whole implementation and both spellings must be here:
+        // `/courses` and `/courses/` arrive as different paths.
+        let rules: Vec<&str> = REDIRECTS.lines().collect();
+        assert_eq!(rules.len(), 2, "expected two rules: {REDIRECTS}");
+        for (rule, from) in rules.iter().zip(["/courses/", "/courses"]) {
+            let fields: Vec<&str> = rule.split_whitespace().collect();
+            assert_eq!(fields, [from, "/learn", "301"], "wrong rule: {rule}");
+        }
+    }
+
+    #[test]
+    fn build_site_writes_the_redirects_file() {
+        let out = site();
+        let redirects = std::fs::read_to_string(out.join("_redirects")).unwrap();
+        assert_eq!(redirects, REDIRECTS);
+        // A redirect is not a destination: no page is written for it, and it
+        // stays out of the sitemap.
+        assert!(!out.join("courses/index.html").exists());
+        let sitemap = std::fs::read_to_string(out.join("sitemap.xml")).unwrap();
+        assert!(!sitemap.contains("/courses"));
     }
 
     #[test]
