@@ -20,6 +20,7 @@
 use anyhow::{Context, Result, anyhow};
 use image::imageops::FilterType;
 use image::{DynamicImage, GenericImageView, RgbImage};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -55,6 +56,44 @@ pub struct ProcessedImage {
     pub height: u32,
 }
 
+/// What one post's images were published as, keyed by the file the post names.
+///
+/// A post writes `./images/image-1.jpg` and the build publishes
+/// `image-1-640.webp`, so the path in the prose is not the path in the output.
+/// The map carries the source name to the href of the variant an `<img>` should
+/// show: the widest one below [`WIDTHS`], or the copy itself for an SVG or GIF.
+#[derive(Debug, Default, Clone)]
+pub struct PublishedImages {
+    by_source: BTreeMap<String, String>,
+}
+
+impl PublishedImages {
+    /// Record one published file under the source name it came from.
+    ///
+    /// Variants arrive narrowest first, so the last one recorded wins and the
+    /// widest variant is what the prose points at - the narrow ones are there
+    /// for a `srcset` a hand-written `<img>` does not have.
+    fn record(&mut self, source_name: &str, href: &str) {
+        self.by_source
+            .insert(source_name.to_string(), href.to_string());
+    }
+
+    /// The href to serve for a post-relative `path`, if the build published it.
+    ///
+    /// `path` is what the post wrote (`./images/image-1.jpg`); the lookup
+    /// strips the same prefixes [`crate::markdown::strip_asset_prefix`] does, so
+    /// `./images/x.png`, `images/x.png`, and `x.png` all find `x.png`.
+    pub fn href_for(&self, path: &str) -> Option<&str> {
+        let name = path.rsplit('/').next().unwrap_or(path);
+        self.by_source.get(name).map(String::as_str)
+    }
+
+    /// Whether anything was published for this post.
+    pub fn is_empty(&self) -> bool {
+        self.by_source.is_empty()
+    }
+}
+
 /// Publish every image in `source_dir` into `out_dir`, resizing as it goes.
 ///
 /// `source_dir` is a post's `images/` directory and `out_dir` is where that
@@ -71,6 +110,16 @@ pub fn process_post_images(source_dir: &Path, out_dir: &Path) -> Result<Vec<Proc
         processed.extend(process_one(&path, out_dir)?);
     }
     Ok(processed)
+}
+
+/// Publish a post's images and return the lookup the markdown stage needs.
+///
+pub fn publish_post_images(source_dir: &Path, out_dir: &Path) -> Result<PublishedImages> {
+    let mut published = PublishedImages::default();
+    for image in process_post_images(source_dir, out_dir)? {
+        published.record(&image.source_name, &image.href);
+    }
+    Ok(published)
 }
 
 /// Publish one image, returning every file it produced.
@@ -135,6 +184,11 @@ fn resize_rasters(path: &Path, source_name: &str, out_dir: &Path) -> Result<Vec<
 
 /// The widths one image is published at: [`WIDTHS`] below the source width,
 /// plus [`OG_WIDTH`] for a `featured` image, ascending and deduplicated.
+///
+/// An image already narrower than every target width is published at its own
+/// width. Dropping it instead would leave the post pointing at a file that
+/// never shipped - two of the corpus images are 509px and 615px screenshots -
+/// and upscaling it to 640 would blur it for no benefit.
 fn variant_widths(stem: &str, source_width: u32) -> Vec<u32> {
     let mut widths: Vec<u32> = WIDTHS
         .iter()
@@ -146,6 +200,9 @@ fn variant_widths(stem: &str, source_width: u32) -> Vec<u32> {
     }
     widths.sort_unstable();
     widths.dedup();
+    if widths.is_empty() {
+        widths.push(source_width);
+    }
     widths
 }
 
@@ -434,5 +491,98 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         copy_static(&dir.join("static"), &dir.join("dist")).unwrap();
         assert!(!dir.join("dist").exists());
+    }
+
+    #[test]
+    fn the_published_map_points_at_the_widest_variant() {
+        let dir = std::env::temp_dir().join("ethang-img-map");
+        let src = dir.join("src");
+        let out = dir.join("images").join("blog").join("demo-post");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&src).unwrap();
+        write_png(&src.join("image-1.png"), 1500, 750);
+        std::fs::write(src.join("chart.svg"), "<svg/>").unwrap();
+
+        let published = publish_post_images(&src, &out).unwrap();
+
+        // 1500px wide publishes 640, 960, and 1280; the widest is the one an
+        // <img> without a srcset should show.
+        assert_eq!(
+            published.href_for("image-1.png"),
+            Some("/images/blog/demo-post/image-1-1280.webp")
+        );
+        // An SVG is copied, so it keeps its own name.
+        assert_eq!(
+            published.href_for("chart.svg"),
+            Some("/images/blog/demo-post/chart.svg")
+        );
+        assert!(!published.is_empty());
+    }
+
+    #[test]
+    fn the_published_map_accepts_every_prefix_a_post_writes() {
+        let dir = std::env::temp_dir().join("ethang-img-prefix");
+        let src = dir.join("src");
+        let out = dir.join("out");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&src).unwrap();
+        write_png(&src.join("shot.png"), 800, 400);
+        let published = publish_post_images(&src, &out).unwrap();
+
+        for path in ["./images/shot.png", "images/shot.png", "shot.png"] {
+            assert!(
+                published.href_for(path).is_some(),
+                "{path} did not resolve: {published:?}"
+            );
+        }
+        assert_eq!(published.href_for("missing.png"), None);
+    }
+
+    #[test]
+    fn a_post_with_no_images_publishes_an_empty_map() {
+        let dir = std::env::temp_dir().join("ethang-img-none");
+        let _ = std::fs::remove_dir_all(&dir);
+        let published = publish_post_images(&dir.join("src"), &dir.join("out")).unwrap();
+        assert!(published.is_empty());
+    }
+
+    #[test]
+    fn a_narrow_image_is_published_at_its_own_width() {
+        let dir = std::env::temp_dir().join("ethang-img-narrow");
+        let src = dir.join("src");
+        let out = dir.join("out");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&src).unwrap();
+        // Narrower than every target width: dropping it would leave the post
+        // pointing at a file that never shipped.
+        write_png(&src.join("statusline.png"), 509, 103);
+        let published = publish_post_images(&src, &out).unwrap();
+
+        assert_eq!(
+            published.href_for("statusline.png"),
+            Some("/images/blog/out/statusline-509.webp")
+        );
+        assert!(out.join("statusline-509.webp").exists());
+    }
+
+    #[test]
+    fn every_source_image_is_published_under_some_name() {
+        let dir = std::env::temp_dir().join("ethang-img-all");
+        let src = dir.join("src");
+        let out = dir.join("out");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&src).unwrap();
+        write_png(&src.join("tiny.png"), 200, 100);
+        write_png(&src.join("mid.png"), 800, 400);
+        write_png(&src.join("wide.png"), 2000, 1000);
+
+        let published = publish_post_images(&src, &out).unwrap();
+
+        for source in ["tiny.png", "mid.png", "wide.png"] {
+            assert!(
+                published.href_for(source).is_some(),
+                "{source} was never published: {published:?}"
+            );
+        }
     }
 }

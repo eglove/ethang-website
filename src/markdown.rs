@@ -25,6 +25,15 @@ pub struct RenderCtx<'a> {
     pub post_slug: &'a str,
     pub highlight: &'a dyn Fn(&str, &str) -> String,
     pub render_math: &'a dyn Fn(&str, bool) -> String,
+    /// Map a post-relative asset path to the URL it is published at.
+    ///
+    /// A raster image is republished as resized WebP variants, so the file a
+    /// post names (`./images/image-1.jpg`) is not the file that ships. The
+    /// build knows which variants it wrote; markdown does not, so the lookup is
+    /// injected. [`default_asset_url`] is the identity case - the path is
+    /// rooted at the slug and nothing is renamed - which is what a test that
+    /// never published anything needs.
+    pub asset_url: &'a dyn Fn(&str) -> String,
 }
 
 /// Placeholder openers that cannot occur in prose. The private-use area is
@@ -34,8 +43,8 @@ const DISPLAY_MATH: char = '\u{e001}';
 
 /// Render a post body to HTML.
 pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
-    let expanded =
-        expand_components(body).replace(ASSET_ROOT, &format!("/images/blog/{}/", ctx.post_slug));
+    let expanded = expand_components(body, ctx.asset_url)
+        .replace(ASSET_ROOT, &format!("/images/blog/{}/", ctx.post_slug));
     let (source, mut math) = extract_display_math(&expanded);
 
     let mut options = Options::empty();
@@ -88,7 +97,7 @@ pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
                 id,
             }) => events.push(Event::Start(Tag::Image {
                 link_type,
-                dest_url: CowStr::Boxed(post_asset_url(ctx.post_slug, &dest_url).into_boxed_str()),
+                dest_url: CowStr::Boxed((ctx.asset_url)(&dest_url).into_boxed_str()),
                 title,
                 id,
             })),
@@ -269,7 +278,7 @@ const COMPONENTS: [&str; 5] = [
 ///
 /// Post-relative asset paths come out of here still relative; `render_markdown`
 /// roots them at the post's own directory once it knows the slug.
-pub fn expand_components(body: &str) -> String {
+pub fn expand_components(body: &str, asset_url: &dyn Fn(&str) -> String) -> String {
     let (imports, source) = strip_imports(body);
     let mut out = String::with_capacity(source.len());
     let mut in_fence = false;
@@ -288,7 +297,9 @@ pub fn expand_components(body: &str) -> String {
             continue;
         }
 
-        if !in_fence && let Some((consumed, replacement)) = expand_at(&source[offset..], &imports) {
+        if !in_fence
+            && let Some((consumed, replacement)) = expand_at(&source[offset..], &imports, asset_url)
+        {
             out.push_str(&replacement);
             offset += consumed;
             continue;
@@ -342,7 +353,11 @@ fn parse_default_import(line: &str) -> Option<(String, String)> {
 
 /// Expand the component starting at `source` if there is one, returning how
 /// many bytes it consumed and what to write in its place.
-fn expand_at(source: &str, imports: &BTreeMap<String, String>) -> Option<(usize, String)> {
+fn expand_at(
+    source: &str,
+    imports: &BTreeMap<String, String>,
+    asset_url: &dyn Fn(&str) -> String,
+) -> Option<(usize, String)> {
     let trimmed = source.trim_start();
     // Consumed counts from `source`, so the whitespace before the tag has to
     // come back out: blank lines around a component are layout, not content.
@@ -368,7 +383,7 @@ fn expand_at(source: &str, imports: &BTreeMap<String, String>) -> Option<(usize,
         "Blockquote" => render_blockquote(&attrs, inner),
         "VideoEmbed" => render_video_embed(&attrs)?,
         "PostTable" => render_post_table(&attrs)?,
-        "PostImage" => render_post_image(&attrs, imports),
+        "PostImage" => render_post_image(&attrs, imports, asset_url),
         "Heading" => render_heading(&attrs, inner),
         _ => return None,
     };
@@ -646,11 +661,15 @@ fn render_post_table(attrs: &[(String, AttrValue)]) -> Option<String> {
 }
 
 /// `<PostImage src alt caption />`, resolved through the import map.
-fn render_post_image(attrs: &[(String, AttrValue)], imports: &BTreeMap<String, String>) -> String {
+fn render_post_image(
+    attrs: &[(String, AttrValue)],
+    imports: &BTreeMap<String, String>,
+    asset_url: &dyn Fn(&str) -> String,
+) -> String {
     let raw_src = expr_attr(attrs, "src")
         .and_then(|expr| imports.get(expr).cloned())
         .or_else(|| text_attr(attrs, "src"));
-    let src = raw_src.map(|path| resolve_asset(&path)).unwrap_or_default();
+    let src = raw_src.map(|path| asset_url(&path)).unwrap_or_default();
     let alt = text_attr(attrs, "alt").unwrap_or_default();
 
     let mut children = vec![void_el(
@@ -671,7 +690,9 @@ fn render_post_image(attrs: &[(String, AttrValue)], imports: &BTreeMap<String, S
 /// Root a post-relative asset path at the post's own directory, slug known.
 ///
 /// Markdown images in the posts are written relative to the post file
-/// (`./images/image-0.png`); published, they live under the slug.
+/// (`./images/image-0.png`); published, they live under the slug. This is the
+/// fallback for a build that published no variants, and the shape every
+/// renamed path keeps: only the file name changes when an image is resized.
 pub fn post_asset_url(slug: &str, path: &str) -> String {
     let path = path.trim();
     if path.starts_with('/') || path.starts_with("http") || path.starts_with("data:") {
@@ -680,16 +701,9 @@ pub fn post_asset_url(slug: &str, path: &str) -> String {
     format!("/images/blog/{slug}/{}", strip_asset_prefix(path))
 }
 
-/// Root a post-relative asset path at the post's own directory.
-///
-/// `render_markdown` prefixes the post slug before parsing, so a path that is
-/// already absolute is left alone.
-fn resolve_asset(path: &str) -> String {
-    let path = path.trim();
-    if path.starts_with('/') || path.starts_with("http") {
-        return path.to_string();
-    }
-    format!("{ASSET_ROOT}{}", strip_asset_prefix(path))
+/// The identity asset mapping: root the path at the slug, rename nothing.
+pub fn default_asset_url(slug: &str, path: &str) -> String {
+    post_asset_url(slug, path)
 }
 
 /// Drop the `./`, `../`, and `images/` prefixes a post writes its assets with.
@@ -983,6 +997,7 @@ mod tests {
             post_slug: "demo",
             highlight: h,
             render_math: m,
+            asset_url: &|path| default_asset_url("demo", path),
         }
     }
 
