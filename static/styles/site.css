@@ -3,7 +3,51 @@
  * Palette and type scale are ported verbatim from the Astro site's
  * src/styles/global.css (@theme block). No Tailwind, no preprocessor, no
  * build step: this file is served as written.
+ *
+ * Fonts are self-hosted woff2 files in static/fonts/ (latin subset, downloaded
+ * from the Fontsource CDN). No local() fallbacks: the file is self-contained and
+ * renders identically everywhere.
  */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/inter-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/inter-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-700.woff2") format("woff2");
+}
 
 :root {
   color-scheme: dark;
@@ -628,6 +672,109 @@ hr {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ── Tips: the two CSS demos ──────────────────────────────────────────── */
+
+/* scroll-containers: a grid with a scrolling middle row. The header and
+ * footer stay put because the middle track is 1fr and scrolls on its own. */
+.tip-demo {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: var(--space-md);
+  margin-block: var(--space-md);
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-sm) var(--space-md);
+}
+
+.tip-demo__bar {
+  margin: 0;
+  border-block-end: 1px solid var(--night-owl-border);
+  padding-block-end: var(--space-sm);
+  color: var(--night-owl-fg);
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-line);
+  font-weight: 600;
+}
+
+.tip-demo__scroll {
+  height: 16rem;
+  overflow: auto;
+}
+
+.tip-demo__scroll p {
+  margin: 0;
+  color: var(--night-owl-fg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.tip-demo__foot {
+  margin-block-start: var(--space-md);
+  border-block-start: 1px solid var(--night-owl-border);
+  padding-block-start: var(--space-md);
+}
+
+.tip-demo__foot p {
+  margin: 0;
+  color: var(--night-owl-fg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+/* scrollbar-gutter: two panels, identical text, one reserving the gutter. */
+.tip-demo-pair {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
+  margin-block-start: var(--space-md);
+}
+
+@media (min-width: 48rem) {
+  .tip-demo-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.tip-demo-panel {
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.tip-demo-panel__label {
+  margin-block-end: var(--space-sm);
+  color: var(--night-owl-fg);
+  font-weight: 600;
+}
+
+.tip-demo-panel__scroll {
+  height: 16rem;
+  overflow: auto;
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.tip-demo-panel__scroll p {
+  margin: 0;
+  color: var(--night-owl-fg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.tip-demo-panel__scroll p + p {
+  margin-block-start: var(--space-sm);
+}
+
+/* The whole point of the tip: one reserves the gutter, one does not. */
+.tip-demo-panel__scroll--stable {
+  scrollbar-gutter: stable;
+}
+
+.tip-demo-panel__scroll--auto {
+  scrollbar-gutter: auto;
 }
 
 /* ── Print ────────────────────────────────────────────────────────────── */

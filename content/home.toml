@@ -1,0 +1,82 @@
+# The home page data: what I have shipped, split into client work and the
+# monorepo this site lives in. Transcribed verbatim from the Astro site's
+# constants/home.ts. `unstuck` is the one-line outcome shown on the card.
+
+clientWork = 'Client work'
+monorepo = 'Monorepo'
+whatIveShippedHeading = 'What I’ve shipped'
+
+[[clientProjects]]
+name = 'Automated testing for a legacy .NET + React codebase'
+detail = 'Introduced end-to-end and component tests. React state bugs that hid from manual review surfaced in the first week.'
+unstuck = 'Surfaced React state bugs that had resisted manual review.'
+
+[[clientProjects]]
+name = 'Team collaboration app: video, chat, calendar, files'
+detail = 'Built a team collaboration app from scratch: P2P video, chat, phone, calendar, file sharing, websocket notifications. Solo, idea to working product.'
+
+[[clientProjects]]
+name = 'Real-time crypto pricing dashboard'
+detail = 'Consulted on a real-time crypto pricing dashboard. Performance budgeted and met.'
+
+[[clientProjects]]
+name = 'Farming dashboard with Redux time-travel'
+detail = 'Built features for a highly dynamic international farming dashboard. Used Redux time-travel debugging to understand existing state, then extend it.'
+
+[[clientProjects]]
+name = 'Rebuild of a federal emissions monitoring system'
+detail = 'One of three developers on the rewrite. Test coverage climbed until QA asked us to slow down; used the runway for better repros.'
+unstuck = 'Shipped faster than QA could keep up; used the runway for more reproducible bug reports.'
+
+[[clientProjects]]
+name = 'Customer dashboard redesign (IE11)'
+detail = 'Redesigned a customer dashboard in vanilla JS. Kept compatibility with Internet Explorer 11.'
+
+[[clientProjects]]
+name = 'Low-code GraphQL platform'
+detail = 'Worked on a low-code platform that generated GraphQL APIs through a React UI.'
+
+[[clientProjects]]
+name = 'Next.js migration off a legacy CMS'
+detail = 'Upgraded a vanilla React + Sitecore app to Next.js. The migration had been stalled for two months on hosting; shipped in a few weeks, then redesigned the user dashboard.'
+unstuck = 'Unstuck a Next.js migration that had been stalled for two months on hosting.'
+
+[[clientProjects]]
+name = 'Non-profit and radio SEO consulting'
+detail = 'SEO and performance consulting for a non-profit working to end dog homelessness, plus two national radio stations.'
+
+[[clientProjects]]
+name = 'React Native ERP for a local small business'
+detail = 'Built a React Native ERP for a small local business. Greenfield app, then iterated with the owner.'
+
+[[clientProjects]]
+name = 'Multi-carrier shipping quotes and booking'
+detail = 'Delivered a quotes-and-booking app integrating FedEx, UPS, and other carriers.'
+
+[[clientProjects]]
+name = 'Telecom provisioning platform'
+detail = 'Built and maintained responsive web applications and RESTful web services for telecom members to manage user access to internet, telephone, and TV/streaming services. Java microservices with Spring Boot.'
+
+[[clientProjects]]
+name = 'CMS-driven village trustee site'
+detail = 'Built and maintained a CMS-driven React site for a village trustee board.'
+
+[[monorepoProjects]]
+name = 'Agent skills compiler (agents-build)'
+detail = 'TypeScript-defined skills, rules, and commands compiled into a checked-in .agents/ directory with sizing and drift checks. The compiler behind the skills used in this monorepo.'
+
+[[monorepoProjects]]
+name = 'Authentication service (auth)'
+detail = 'Cloudflare Workers, Hono, Drizzle ORM, D1. Authentication service used across the monorepo.'
+
+[[monorepoProjects]]
+name = 'Course tracking (ethang-courses)'
+detail = 'Cloudflare Workers RPC and Drizzle. Course tracking with structured lessons and progress.'
+
+[[monorepoProjects]]
+name = 'This home page (ethang-astro)'
+detail = "Astro, content collections, Tailwind CSS, and Cloudflare Workers. The page you are reading, built from the monorepo's shared content and services."
+
+[[monorepoProjects]]
+name = 'RSS pipeline (ethang-rss)'
+detail = 'Ingest feeds, dedupe, normalize, publish. Runs on the same worker stack as the rest of the monorepo.'
