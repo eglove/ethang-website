@@ -108,6 +108,9 @@
    * step padding scale; these replace those fixed utility strings. */
   --page-max: 72rem;
   --page-pad: 1rem;
+  /* A reading measure for the short blocks that want one - the learn ledes,
+   * group blurbs, and the 404. Article prose does not use it: it fills
+   * --page-max, the way the Astro layout's did. */
   --prose-measure: 68ch;
 
   /* ── Spacing ───────────────────────────────────────────────────────── */
@@ -424,8 +427,13 @@ hr {
 
 /* ── Blog prose (article content) ─────────────────────────────────────── */
 
+/* The prose column fills the page (72rem), as the Astro layout did: its
+ * `.blog-prose` article sat directly inside `max-w-6xl` with no measure of
+ * its own. Capping it at --prose-measure squeezed figures into ~600px and
+ * made the browser pick the 640px srcset variant, so diagrams rendered soft
+ * at half the width they were drawn for. Prose that wants a narrower measure
+ * (the learn ledes, the 404) sets one on its own element. */
 .blog-prose {
-  max-inline-size: var(--prose-measure);
   line-height: 1.7;
 }
 
