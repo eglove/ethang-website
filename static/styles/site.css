@@ -483,6 +483,74 @@ hr {
   margin-block: 1.25rem;
 }
 
+/* Figures the post components produce: a video keeps a 16:9 box, and a wide
+ * table scrolls inside its own frame instead of the page. */
+.blog-prose figure {
+  margin-block: var(--space-md);
+}
+
+.blog-prose .video-frame {
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--night-owl-border);
+}
+
+.blog-prose .video-frame iframe {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+}
+
+.blog-prose .table-scroll {
+  overflow-inline: auto;
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-lg);
+  background: var(--night-owl-surface);
+}
+
+.blog-prose table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.blog-prose th {
+  padding: var(--space-sm) var(--space-md);
+  border-block-end: 1px solid var(--night-owl-border);
+  color: var(--night-owl-muted);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.blog-prose td {
+  padding: var(--space-sm) var(--space-md);
+  border-block-end: 1px solid var(--night-owl-border);
+  vertical-align: top;
+}
+
+.blog-prose tr:last-child td {
+  border-block-end: 0;
+}
+
+.blog-prose blockquote.quote {
+  font-style: italic;
+}
+
+.blog-prose blockquote.quote footer {
+  margin-block-start: var(--space-xs);
+  color: var(--night-owl-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+  font-style: normal;
+}
 .blog-prose figcaption {
   color: var(--night-owl-muted);
   font-size: var(--text-sm);

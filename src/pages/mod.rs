@@ -33,7 +33,10 @@ pub fn render_doc(doc: &Doc) -> String {
         ),
         void_el("meta", &[("name", "theme-color"), ("content", "#011627")]),
         el("title", &[], &[escape(&doc.title)]),
-        void_el("link", &[("rel", "stylesheet"), ("href", "/styles/site.css")]),
+        void_el(
+            "link",
+            &[("rel", "stylesheet"), ("href", "/styles/site.css")],
+        ),
         void_el(
             "link",
             &[
@@ -50,7 +53,10 @@ pub fn render_doc(doc: &Doc) -> String {
         ));
         head.push(void_el(
             "meta",
-            &[("property", "og:description"), ("content", description.as_str())],
+            &[
+                ("property", "og:description"),
+                ("content", description.as_str()),
+            ],
         ));
     }
     if let Some(canonical) = &doc.canonical {
@@ -87,7 +93,9 @@ pub fn render_doc(doc: &Doc) -> String {
             el(
                 "p",
                 &[],
-                &[escape("Written by Ethan Glover. Built with Rust, shipped as static HTML.")],
+                &[escape(
+                    "Written by Ethan Glover. Built with Rust, shipped as static HTML.",
+                )],
             ),
         ],
     );
@@ -96,7 +104,7 @@ pub fn render_doc(doc: &Doc) -> String {
         &[],
         &[
             el("header", &[("class", "site-header")], &[nav]),
-            el("main", &[], &[doc.body.clone()]),
+            el("main", &[], std::slice::from_ref(&doc.body)),
             footer,
         ],
     );
@@ -179,7 +187,10 @@ mod tests {
         };
         let html = render_doc(&doc);
         for href in ["/blog", "/tips", "/learn"] {
-            assert!(html.contains(&format!("href=\"{href}\"")), "missing nav link {href}");
+            assert!(
+                html.contains(&format!("href=\"{href}\"")),
+                "missing nav link {href}"
+            );
         }
         assert!(html.contains("<footer class=\"site-footer\">"));
         assert!(html.contains("<main>"));
