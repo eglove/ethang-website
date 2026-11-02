@@ -2,5 +2,7 @@
 /dist
 *.pdb
 .DS_Store
+# wrangler's local cache (holds the account id)
+/.wrangler
 # agent workspace metadata, not part of the project
 /.ethang

@@ -34,21 +34,25 @@ and the `ethang.dev` / `www.ethang.dev` custom domains. There is no `main` and n
 
 ```sh
 cargo run --release -- build --out dist
-cf deploy --prebuilt            # uploads the existing dist/
-cf deploy --dry-run --prebuilt  # checks the config without uploading
+wrangler deploy                  # uploads the existing dist/
+wrangler deploy --dry-run        # checks the config without uploading
 ```
 
 `tests/deploy_config.rs` pins the parts of the config the build depends on, and fails if
 a `cloudflare.config.ts`, `wrangler.config.ts`, or `vite.config.ts` reappears.
 
-### Why not `cf init`
+### Why `wrangler` and not `cf`
 
-`cf init` scaffolds a TypeScript project (`cloudflare.config.ts`, `vite.config.ts`,
-`src/index.ts`) and expects a Node manifest. `cf deploy` without a config file does the
-same thing on the fly: it autoconfigures, offers to write those files, and then aborts
-because this repository has no `package.json`, `pyproject.toml`, or dev-server package.
-Run it only once `wrangler.jsonc` exists and with `--prebuilt`, so it reads the config
-instead of autoconfiguring. Verified with `cf` 1.0.0-beta.5.
+`cf deploy` reads a Build Output Specification tree (`.cloudflare/output/v0/`) rather
+than `wrangler.jsonc`, and that format is still moving between betas: `cf` 1.0.0-beta.5
+read the config file, while 1.0.0-beta.23 looks only for
+`.cloudflare/output/v0/config.json` and fails with "no root config found" against this
+repository. `wrangler` reads `wrangler.jsonc` directly, so the committed config stays the
+single source of truth. Verified with `wrangler` 4.153.0.
+
+Do not run `cf init` either: it scaffolds a TypeScript project (`cloudflare.config.ts`,
+`vite.config.ts`, `src/index.ts`) and expects a Node manifest, which would break the
+no-JavaScript rule above.
 
 ## Dropped pages
 
