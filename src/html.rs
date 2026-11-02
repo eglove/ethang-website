@@ -69,7 +69,10 @@ mod tests {
 
     #[test]
     fn escapes_all_five_dangerous_characters() {
-        assert_eq!(escape(r#"<a href="x">&'"#), "&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
+        assert_eq!(
+            escape(r#"<a href="x">&'"#),
+            "&lt;a href=&quot;x&quot;&gt;&amp;&#39;"
+        );
     }
 
     #[test]
@@ -96,7 +99,11 @@ mod tests {
 
     #[test]
     fn el_renders_children_in_order() {
-        let out = el("div", &[("class", "x")], &[el("p", &[], &[]), el("p", &[], &[])]);
+        let out = el(
+            "div",
+            &[("class", "x")],
+            &[el("p", &[], &[]), el("p", &[], &[])],
+        );
         assert_eq!(out, "<div class=\"x\"><p></p><p></p></div>");
     }
 }

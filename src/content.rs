@@ -112,13 +112,15 @@ pub fn parse_frontmatter(frontmatter: &str) -> Result<Post> {
             "featuredImage" => featured_image = none_if_empty(value),
             "featuredImageAlt" => featured_image_alt = none_if_empty(value),
             "pubDate" => {
-                let parsed = parse_date(&value)
-                    .ok_or_else(|| anyhow::anyhow!("pubDate is not an RFC3339 timestamp: {value}"))?;
+                let parsed = parse_date(&value).ok_or_else(|| {
+                    anyhow::anyhow!("pubDate is not an RFC3339 timestamp: {value}")
+                })?;
                 pub_date = Some(parsed);
             }
             "updatedDate" => {
-                let parsed = parse_date(&value)
-                    .ok_or_else(|| anyhow::anyhow!("updatedDate is not an RFC3339 timestamp: {value}"))?;
+                let parsed = parse_date(&value).ok_or_else(|| {
+                    anyhow::anyhow!("updatedDate is not an RFC3339 timestamp: {value}")
+                })?;
                 updated_date = Some(parsed);
             }
             other => bail!("unknown frontmatter key `{other}` on line {}", index + 1),
@@ -126,8 +128,10 @@ pub fn parse_frontmatter(frontmatter: &str) -> Result<Post> {
     }
 
     let slug = slug.ok_or_else(|| anyhow::anyhow!("frontmatter is missing required key `slug`"))?;
-    let title = title.ok_or_else(|| anyhow::anyhow!("frontmatter is missing required key `title`"))?;
-    let pub_date = pub_date.ok_or_else(|| anyhow::anyhow!("frontmatter is missing required key `pubDate`"))?;
+    let title =
+        title.ok_or_else(|| anyhow::anyhow!("frontmatter is missing required key `title`"))?;
+    let pub_date =
+        pub_date.ok_or_else(|| anyhow::anyhow!("frontmatter is missing required key `pubDate`"))?;
 
     Ok(Post {
         slug,
@@ -264,13 +268,17 @@ pub fn load_posts(root: &Path) -> Result<Vec<Post>> {
             .with_context(|| format!("reading {}", file.display()))?;
         let (frontmatter, body) =
             split_frontmatter(&raw).with_context(|| format!("parsing {}", file.display()))?;
-        let mut post =
-            parse_frontmatter(frontmatter).with_context(|| format!("parsing {}", file.display()))?;
+        let mut post = parse_frontmatter(frontmatter)
+            .with_context(|| format!("parsing {}", file.display()))?;
         post.body = body.trim().to_string();
         posts.push(post);
     }
 
-    posts.sort_by(|a, b| b.pub_date.cmp(&a.pub_date).then_with(|| b.slug.cmp(&a.slug)));
+    posts.sort_by(|a, b| {
+        b.pub_date
+            .cmp(&a.pub_date)
+            .then_with(|| b.slug.cmp(&a.slug))
+    });
     Ok(posts)
 }
 
@@ -370,14 +378,19 @@ mod tests {
         .unwrap();
         assert_eq!(post.slug, "alpha");
         assert_eq!(post.title, "Alpha: A Post");
-        assert_eq!(post.featured_image.as_deref(), Some("./images/featured.jpg"));
+        assert_eq!(
+            post.featured_image.as_deref(),
+            Some("./images/featured.jpg")
+        );
         assert_eq!(post.pub_date, 1704153600000);
     }
 
     #[test]
     fn missing_required_key_is_an_error() {
         assert!(parse_frontmatter("pubDate: \"2024-01-02T00:00:00Z\"\nslug: \"alpha\"\n").is_err());
-        assert!(parse_frontmatter("pubDate: \"2024-01-02T00:00:00Z\"\ntitle: \"Alpha\"\n").is_err());
+        assert!(
+            parse_frontmatter("pubDate: \"2024-01-02T00:00:00Z\"\ntitle: \"Alpha\"\n").is_err()
+        );
     }
 
     #[test]
@@ -385,7 +398,11 @@ mod tests {
         let dir = std::env::temp_dir().join("ethang-frontmatter-typo");
         let post_dir = dir.join("bad");
         std::fs::create_dir_all(&post_dir).unwrap();
-        std::fs::write(post_dir.join("index.mdx"), "---\npubDatum: \"2024-01-01T00:00:00Z\"\nslug: \"bad\"\ntitle: \"Bad\"\n---\n").unwrap();
+        std::fs::write(
+            post_dir.join("index.mdx"),
+            "---\npubDatum: \"2024-01-01T00:00:00Z\"\nslug: \"bad\"\ntitle: \"Bad\"\n---\n",
+        )
+        .unwrap();
         assert!(load_posts(&dir).is_err());
     }
 }

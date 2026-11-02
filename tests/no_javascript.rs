@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 const FORBIDDEN: [&str; 8] = ["js", "mjs", "cjs", "jsx", "ts", "mts", "cts", "tsx"];
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
@@ -37,7 +39,10 @@ fn offenders_in(root: &Path) -> Vec<String> {
 fn repository_contains_no_javascript_or_typescript() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let offenders = offenders_in(root);
-    assert!(offenders.is_empty(), "JavaScript/TypeScript files present: {offenders:#?}");
+    assert!(
+        offenders.is_empty(),
+        "JavaScript/TypeScript files present: {offenders:#?}"
+    );
 }
 
 #[test]
@@ -47,5 +52,8 @@ fn build_output_contains_no_javascript_or_typescript() {
         return;
     }
     let offenders = offenders_in(&dist);
-    assert!(offenders.is_empty(), "build emitted JavaScript/TypeScript: {offenders:#?}");
+    assert!(
+        offenders.is_empty(),
+        "build emitted JavaScript/TypeScript: {offenders:#?}"
+    );
 }
