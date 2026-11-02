@@ -1,0 +1,11 @@
+[package]
+name = "ethang-website"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+image = { version = "0.25.10", features = ["webp"] }
+latex2mathml = "0.2.3"
+pulldown-cmark = { version = "0.13.6", features = ["html"] }
+syntect = "5.3.0"

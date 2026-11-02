@@ -1,0 +1,5 @@
+# The MSVC linker (link.exe) is not installed on this machine, so the crate builds
+# against the GNU toolchain instead. `cargo` picks this up automatically.
+[toolchain]
+channel = "stable-x86_64-pc-windows-gnu"
+profile = "minimal"

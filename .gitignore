@@ -1,0 +1,6 @@
+/target
+/dist
+*.pdb
+.DS_Store
+# agent workspace metadata, not part of the project
+/.ethang
