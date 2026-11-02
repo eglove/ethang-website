@@ -109,9 +109,10 @@ impl HighlightEngine {
         }
         let found = match extension_for(token) {
             // An empty extension means "this fence is deliberately plain": prose
-            // blocks, and mermaid diagrams, which the math/mermaid pass replaces
-            // with committed SVG. Colouring a diagram's source would only ever
-            // show up if that pass has not run, so leave it as escaped text.
+            // blocks, and mermaid diagrams, which `diagrams::render_mermaid`
+            // replaces with a committed SVG before this point. Colouring a
+            // diagram's source would only ever show up if that routing missed a
+            // fence, so leave it as escaped text.
             Some("") => None,
             Some(extension) => self.syntaxes.find_syntax_by_extension(extension),
             None => self.syntaxes.find_syntax_by_token(token),
@@ -246,8 +247,11 @@ mod tests {
 
     #[test]
     fn mermaid_is_left_as_plain_text() {
-        // Task 6 replaces mermaid fences with committed SVG. Until then the source
-        // has to survive as readable, uncoloured text rather than as a guess.
+        // Task 6 routes mermaid fences to `diagrams::render_mermaid` before this
+        // function is reached, so nothing in the real build calls it with a
+        // mermaid fence. It stays a safe destination anyway: if the routing ever
+        // misses a fence, the source has to come out readable and uncoloured
+        // rather than vanish or be guessed at.
         let out = highlight("mermaid", "graph TD; A-->B;");
         assert!(out.contains("graph TD; A--&gt;B;"));
         assert!(

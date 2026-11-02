@@ -1,0 +1,11 @@
+---
+accTitle: The agent record lifecycle
+---
+stateDiagram-v2
+    [*] --> Running: session opened / child spawned
+    Running --> Completed: report
+    Running --> Failed: failure
+    Running --> Interrupted: stop
+    Completed --> Running: resume
+    Failed --> Running: retry
+    Interrupted --> [*]

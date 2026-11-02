@@ -1,0 +1,11 @@
+---
+accTitle: The sub-agent system, from spawn to supervision
+---
+flowchart TB
+    P[Parent agent] -->|agent.spawn| SH[StartSpawnHandler<br/>validates · resolves grants]
+    SH -->|persist first| REC[(AgentRecord<br/>+ SpawnContract)]
+    SH --> RT[Agent runtime<br/>concurrency cap · queue]
+    RT --> LOOP[Child agent loop<br/>same Agent class]
+    LOOP --> FTR[FilteredToolRegistry<br/>grants enforced at dispatch]
+    WD[Watchdog<br/>pure policy + enactment] -.->|idle breach: retry, then fail| RT
+    WD --> AUDIT[(watchdog_events<br/>append-only audit)]

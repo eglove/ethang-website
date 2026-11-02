@@ -1,0 +1,19 @@
+---
+accTitle: Information transfer chains
+---
+flowchart LR
+    subgraph allAutistic["all-autistic chain"]
+        direction LR
+        a1[autistic] --> a2[autistic] --> a3[autistic] --> a4[autistic]
+    end
+    subgraph allNeurotypical["all-neurotypical chain"]
+        direction LR
+        n1[neurotypical] --> n2[neurotypical] --> n3[neurotypical] --> n4[neurotypical]
+    end
+    subgraph mixed["mixed chain"]
+        direction LR
+        m1[autistic] --> m2[neurotypical] --> m3[autistic] --> m4[neurotypical]
+    end
+    allAutistic --> r1["detail kept"]
+    allNeurotypical --> r2["detail kept"]
+    mixed --> r3["most detail lost, worst rapport"]

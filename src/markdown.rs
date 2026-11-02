@@ -68,8 +68,17 @@ pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
                 // pulldown-cmark ends the last text run with the newline that
                 // closes the fence; the highlighter wants the code alone.
                 let code = code.strip_suffix('\n').unwrap_or(&code);
-                let highlighted = (ctx.highlight)(&language, code);
-                events.push(Event::Html(CowStr::Boxed(highlighted.into_boxed_str())));
+                // A mermaid fence is a diagram, not code: it resolves to the SVG
+                // committed for that exact source. There is no engine to inject
+                // here the way `highlight` and `render_math` are injected - the
+                // diagram map is a compile-time constant - so it is called
+                // directly. An unmatched source degrades to visible source.
+                let rendered = if language == "mermaid" {
+                    crate::diagrams::render_mermaid(code)
+                } else {
+                    (ctx.highlight)(&language, code)
+                };
+                events.push(Event::Html(CowStr::Boxed(rendered.into_boxed_str())));
             }
             Event::Text(text) if in_code_block => code.push_str(&text),
             Event::Start(Tag::Image {
@@ -1173,6 +1182,47 @@ mod tests {
         assert!(
             out.contains("style=\"color: #ff5874\""),
             "nested style: {out}"
+        );
+    }
+    /// One committed mermaid source, verbatim: `the-blowup-half`'s first fence.
+    const MERMAID: &str = "---\naccTitle: Fefferman's four scenarios\n---\nflowchart TD\n    root[\"Fefferman's four alternatives\"] --> a[\"(A) unbounded space, no force:<br/>smooth data stay smooth\"]\n    root --> b[\"(B) periodic box, no force\"]\n    root --> c[\"(C) unbounded space, smooth force:<br/>the solution breaks down\"]\n    root --> d[\"(D) periodic box, smooth force\"]\n    c --> claimed[\"claimed by the OpenAI paper\"]\n    d --> claimed\n    a --> open[\"untouched, still open\"]\n    b --> open";
+
+    #[test]
+    fn a_mermaid_fence_becomes_a_committed_diagram() {
+        let body = format!("```mermaid\n{MERMAID}\n```");
+        let out = render_markdown(&body, &ctx(&no_highlight, &no_math));
+        assert!(
+            out.contains("<figure class=\"diagram\">"),
+            "mermaid did not become a diagram: {out}"
+        );
+        assert!(!out.contains("<pre class=\"code\">"), "still code: {out}");
+    }
+
+    #[test]
+    fn an_unmatched_mermaid_fence_stays_visible() {
+        let body = "```mermaid\ngraph LR; never committed\n```";
+        let out = render_markdown(body, &ctx(&no_highlight, &no_math));
+        assert!(out.contains("<pre class=\"mermaid\">"), "{out}");
+        assert!(out.contains("never committed"), "source lost: {out}");
+    }
+
+    #[test]
+    fn a_mermaid_fence_inside_its_figure_keeps_the_caption() {
+        // The corpus wraps every diagram in `<figure className=\"my-4\">` with a
+        // `<figcaption>` after the fence. Both wrappers survive: the outer one
+        // from the post's own markup, the inner one from the diagram renderer.
+        let body = format!(
+            "<figure className=\"my-4\">\n\n```mermaid\n{MERMAID}\n```\n\n<figcaption>The cap.</figcaption>\n</figure>"
+        );
+        let out = render_markdown(&body, &ctx(&no_highlight, &no_math));
+        assert!(
+            out.contains("<figure class=\"my-4\">"),
+            "outer figure: {out}"
+        );
+        assert!(out.contains("<figure class=\"diagram\">"), "diagram: {out}");
+        assert!(
+            out.contains("<figcaption>The cap.</figcaption>"),
+            "caption: {out}"
         );
     }
 }

@@ -1,0 +1,12 @@
+---
+accTitle: Fefferman's four scenarios
+---
+flowchart TD
+    root["Fefferman's four alternatives"] --> a["(A) unbounded space, no force:<br/>smooth data stay smooth"]
+    root --> b["(B) periodic box, no force"]
+    root --> c["(C) unbounded space, smooth force:<br/>the solution breaks down"]
+    root --> d["(D) periodic box, smooth force"]
+    c --> claimed["claimed by the OpenAI paper"]
+    d --> claimed
+    a --> open["untouched, still open"]
+    b --> open

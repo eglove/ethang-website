@@ -5,6 +5,7 @@
 //! enforces that over both the repository and the build output.
 
 pub mod content;
+pub mod diagrams;
 pub mod highlight;
 pub mod html;
 pub mod images;

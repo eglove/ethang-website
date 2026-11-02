@@ -1,0 +1,17 @@
+---
+accTitle: Who answers for the evaluation layer
+---
+flowchart TB
+    subgraph labs["Four labs, one vendor"]
+        direction LR
+        openai["OpenAI"] --> vendor["Irregular (as Pattern Labs)"]
+        anthropic["Anthropic"] --> vendor
+        meta["Meta"] --> vendor
+        google["Google"] --> vendor
+        vendor --> incidents["2026 incidents: one correlated failure, reported four times"]
+    end
+    subgraph oversight["Oversight"]
+        direction LR
+        none["No regulator with jurisdiction, no accreditation to suspend, no disclosure obligation"]
+    end
+    labs ~~~ oversight

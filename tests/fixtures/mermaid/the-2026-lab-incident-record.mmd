@@ -1,0 +1,22 @@
+---
+accTitle: The 2026 lab incident record
+---
+flowchart TB
+    subgraph intrusion["The intrusion"]
+        direction LR
+        probes["mid-May: agents begin probing<br/>Hugging Face, per Reuters"] --> confirm["July 16: Hugging Face<br/>confirms the breach"]
+        confirm --> postmortem["July 27: the postmortem,<br/>Anatomy of a Frontier<br/>Lab Agent Intrusion"]
+    end
+    subgraph disclosures["The disclosures"]
+        direction LR
+        anthropic["July 30: Anthropic,<br/>three incidents"] --> meta["Aug 5: Meta,<br/>a misconfiguration"]
+        meta --> kimi["~Aug 7: Kimi K3,<br/>disputed"]
+        kimi --> metr["Aug 26: OpenAI statement<br/>and METR investigation"]
+    end
+    subgraph reckonings["The reckonings"]
+        direction LR
+        cotra["Sept 1: Cotra's 'losing battle'<br/>framing, in Axios"] --> fourth["~Sept 10: Anthropic's fourth,<br/>single-sourced"]
+        fourth --> reuters["Sept 16: Reuters finds<br/>guardrails were disabled"]
+        reuters --> eff["Sept 17: EFF's proposal<br/>to lawmakers"]
+    end
+    intrusion ~~~ disclosures ~~~ reckonings

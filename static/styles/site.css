@@ -511,6 +511,57 @@ hr {
   border: 0;
 }
 
+
+/* Math arrives as MathML, which needs no stylesheet to be readable: the
+ * browser has a default layout for it. These rules only place it. Display
+ * math is a block, so it gets its own line and its own scroll container -
+ * a wide equation on a narrow screen scrolls rather than forcing the page
+ * to scroll sideways. */
+.blog-prose .math {
+  color: var(--night-owl-fg);
+  font-size: 1.05em;
+}
+
+.blog-prose .math--display {
+  display: block;
+  margin-block: var(--space-md);
+  padding-block: var(--space-sm);
+  overflow-inline: auto;
+  text-align: center;
+  border-inline-start: 2px solid var(--night-owl-border);
+  background: var(--night-owl-bg);
+  border-radius: var(--radius-md);
+}
+
+/* A diagram is an image of a diagram: it scales with the column, keeps its
+ * intrinsic ratio from the width/height pair the renderer emits, and never
+ * grows past its own pixel size into a blurry mess. */
+.blog-prose .diagram {
+  margin-block: var(--space-md);
+  margin-inline: 0;
+}
+
+.blog-prose .diagram img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  max-inline-size: 100%;
+  margin: 0;
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-lg);
+  background: var(--night-owl-surface);
+}
+
+/* The fallback for a mermaid fence with no committed diagram: visible, so it
+ * cannot be mistaken for a rendered diagram, and readable, so the source can
+ * be copied straight back out. */
+.blog-prose pre.mermaid {
+  border-inline-start: 3px solid var(--night-owl-red);
+}
+
+.blog-prose pre.mermaid code {
+  color: var(--night-owl-muted);
+}
 .blog-prose .table-scroll {
   overflow-inline: auto;
   border: 1px solid var(--night-owl-border);

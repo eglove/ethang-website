@@ -1,0 +1,23 @@
+---
+accTitle: One root turn, end to end
+---
+sequenceDiagram
+    participant U as User
+    participant A as Desktop app
+    participant H as ChildHost
+    participant L as Agent loop
+    participant P as Provider ACL
+    participant T as Tools over ACLs
+
+    U->>A: message
+    A->>H: root-turn envelope
+    H->>L: send-message command
+    loop until the model answers without tool calls
+        L->>P: ModelRequest (streaming)
+        P-->>L: deltas, then the full response
+        L->>T: dispatch tool calls
+        T-->>L: ToolResult, or Error [CODE]
+    end
+    L-->>H: turn settled
+    H-->>A: streamed events + settle
+    A-->>U: rendered transcript

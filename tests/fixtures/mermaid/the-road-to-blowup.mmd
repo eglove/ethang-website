@@ -1,0 +1,17 @@
+---
+accTitle: The road to blowup
+---
+flowchart TB
+    subgraph nineteenThirties[" "]
+        direction LR
+        leray["1934: Leray<br/>weak solutions exist forever"] --> ckn["1982: Caffarelli-Kohn-Nirenberg<br/>singular sets are sparse"] --> ess["2003: Escauriaza-Seregin-Šverák<br/>bounded weak-L³ blocks blowup"]
+    end
+    subgraph twentyTens[" "]
+        direction LR
+        tao["2014: Tao<br/>blowup for the averaged equation"] --> euler["2023-24: Córdoba, Martínez-Zoroa, Zheng<br/>Euler vortex hierarchies"] --> ba["Aug 2026: Buckmaster and Alpöge<br/>Euler blowup with smooth forcing"]
+    end
+    subgraph twentyTwenties[" "]
+        direction LR
+        openai["Sept 2026: OpenAI<br/>the claimed Navier-Stokes blowup"]
+    end
+    nineteenThirties ~~~ twentyTens ~~~ twentyTwenties

@@ -1,0 +1,40 @@
+---
+accTitle: The bounded-context dependency graph
+---
+flowchart BT
+    SK[SharedKernel<br/>Result · DomainError · Specification]
+    SKILL[Skill Domain<br/>three skill sources]
+    TOOL[Tool Domain<br/>32 tools · seam interfaces]
+    CONV[Conversation Domain<br/>message aggregate]
+    MODEL[Model Domain<br/>IModelProvider seam]
+    CAP[Capability Domain<br/>merged registry]
+    STATE[State Domain<br/>keys + evidence]
+    PLAN[Plan Domain<br/>structured plans]
+    MEM[Memory Domain<br/>recall + curated memory]
+    AGENT[Agent Domain<br/>the loop · sub-agents]
+    APP[Agent Application<br/>handlers · watchdog loop]
+
+    SKILL --> SK
+    TOOL --> SK
+    TOOL --> SKILL
+    CONV --> SK
+    CONV --> TOOL
+    MODEL --> SK
+    MODEL --> CONV
+    MODEL --> TOOL
+    CAP --> SK
+    CAP --> TOOL
+    STATE --> SK
+    STATE --> CAP
+    PLAN --> SK
+    PLAN --> CAP
+    MEM --> SK
+    MEM --> CAP
+    AGENT --> SK
+    AGENT --> MODEL
+    AGENT --> CONV
+    AGENT --> CAP
+    AGENT --> TOOL
+    APP --> AGENT
+    APP --> MEM
+    APP --> MODEL
