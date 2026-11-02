@@ -3,13 +3,26 @@
 use crate::html::{el, escape, raw, void_el};
 use std::path::Path;
 
+pub mod blog;
 pub mod home;
+
+/// The article metadata a blog post adds to `<head>`.
+///
+/// Both stamps are RFC3339 with milliseconds and a `Z` designator, which is
+/// what the old `BaseLayout` produced by handing `Date.toISOString()` to
+/// `article:published_time` / `article:modified_time`.
+pub struct ArticleMeta {
+    pub published_time: String,
+    pub modified_time: Option<String>,
+}
 
 /// A complete page: what goes in `<head>` and what goes in `<main>`.
 pub struct Doc {
     pub title: String,
     pub description: Option<String>,
     pub canonical: Option<String>,
+    /// Present on a blog post; `og:type` becomes `article` when it is.
+    pub article: Option<ArticleMeta>,
     pub body: String,
 }
 
@@ -71,6 +84,35 @@ pub fn render_doc(doc: &Doc) -> String {
             &[("property", "og:url"), ("content", canonical.as_str())],
         ));
     }
+    // `og:type` is always emitted, as the old layout did; a post flips it from
+    // `website` to `article` and gains the two article timestamps.
+    let og_type = if doc.article.is_some() {
+        "article"
+    } else {
+        "website"
+    };
+    head.push(void_el(
+        "meta",
+        &[("property", "og:type"), ("content", og_type)],
+    ));
+    if let Some(article) = &doc.article {
+        head.push(void_el(
+            "meta",
+            &[
+                ("property", "article:published_time"),
+                ("content", article.published_time.as_str()),
+            ],
+        ));
+        if let Some(modified) = &article.modified_time {
+            head.push(void_el(
+                "meta",
+                &[
+                    ("property", "article:modified_time"),
+                    ("content", modified.as_str()),
+                ],
+            ));
+        }
+    }
     let nav_items: Vec<String> = NAV
         .iter()
         .map(|(href, label)| el("li", &[], &[el("a", &[("href", href)], &[escape(label)])]))
@@ -128,7 +170,8 @@ pub fn content_root() -> std::path::PathBuf {
 /// creates the output tree and (from Task 12) copies `static/` alongside it.
 pub fn build_site(out: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(out)?;
-    let home_data = home::load_home(&content_root())?;
+    let root = content_root();
+    let home_data = home::load_home(&root)?;
     let home_body = home::render(&home_data);
     let doc = Doc {
         title: "Ethan Glover".into(),
@@ -137,10 +180,58 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
                 .into(),
         ),
         canonical: Some(format!("{SITE}/")),
+        article: None,
         body: home_body,
     };
-    std::fs::write(out.join("index.html"), render_doc(&doc))?;
+    write_page(&out.join("index.html"), &doc)?;
+    write_blog(out, &root)?;
     Ok(())
+}
+
+/// Write one rendered document, creating the directories it needs.
+fn write_page(path: &Path, doc: &Doc) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(path, render_doc(doc))?;
+    Ok(())
+}
+
+/// Write every blog route: the index, each paginated page after it, and one
+/// page per post.
+///
+/// Directory-style paths (`blog/<slug>/index.html`) are what the deploy config
+/// resolves for the slash-free URLs the old site served.
+fn write_blog(out: &Path, root: &Path) -> anyhow::Result<()> {
+    let posts = crate::content::load_posts(&root.join("blog"))?;
+    let blog_dir = out.join("blog");
+    write_page(&blog_dir.join("index.html"), &blog::index_doc(&posts, 1))?;
+    for page in 2..=crate::content::max_pages(posts.len()) {
+        let doc = blog::index_doc(&posts, page);
+        write_page(
+            &blog_dir
+                .join("page")
+                .join(page.to_string())
+                .join("index.html"),
+            &doc,
+        )?;
+    }
+    for post in &posts {
+        let body = crate::markdown::render_markdown(&post.body, &render_ctx(&post.slug));
+        let doc = blog::post_doc(post, &body);
+        write_page(&blog_dir.join(&post.slug).join("index.html"), &doc)?;
+    }
+    Ok(())
+}
+
+/// The rendering dependencies a post body needs: the slug its assets resolve
+/// against, the highlighter, and the LaTeX renderer.
+fn render_ctx(slug: &str) -> crate::markdown::RenderCtx<'_> {
+    crate::markdown::RenderCtx {
+        post_slug: slug,
+        highlight: &crate::highlight::highlight,
+        render_math: &crate::math::render_math,
+    }
 }
 
 #[cfg(test)]
@@ -153,6 +244,7 @@ mod tests {
             title: "Test".into(),
             description: None,
             canonical: None,
+            article: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -167,6 +259,7 @@ mod tests {
             title: "a & b".into(),
             description: None,
             canonical: None,
+            article: None,
             body: String::new(),
         };
         assert!(render_doc(&doc).contains("<title>a &amp; b</title>"));
@@ -178,6 +271,7 @@ mod tests {
             title: "T".into(),
             description: None,
             canonical: None,
+            article: None,
             body: String::new(),
         };
         assert!(!render_doc(&doc).contains("name=\"description\""));
@@ -189,6 +283,7 @@ mod tests {
             title: "T".into(),
             description: Some("a & b".into()),
             canonical: Some("https://ethang.dev/x".into()),
+            article: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -202,6 +297,7 @@ mod tests {
             title: "T".into(),
             description: None,
             canonical: None,
+            article: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -231,8 +327,94 @@ mod tests {
             title: "T".into(),
             description: None,
             canonical: None,
+            article: None,
             body: "<p>hi</p>".into(),
         };
         assert!(render_doc(&doc).contains("<main><p>hi</p></main>"));
+    }
+
+    #[test]
+    fn build_site_writes_the_blog_index_and_its_pages() {
+        let out = std::env::temp_dir().join("ethang-blog-index-build-test");
+        let _ = std::fs::remove_dir_all(&out);
+        build_site(&out).unwrap();
+        let index = std::fs::read_to_string(out.join("blog/index.html")).unwrap();
+        assert!(index.contains("<title>Blog</title>"));
+        assert!(index.contains("aria-label=\"Blog pagination\""));
+        // 37 published posts at 10 per page is 4 pages: 2, 3, and 4 are paged.
+        for page in [2, 3, 4] {
+            assert!(
+                out.join(format!("blog/page/{page}/index.html")).exists(),
+                "missing page {page}"
+            );
+        }
+        assert!(!out.join("blog/page/5/index.html").exists());
+    }
+
+    #[test]
+    fn build_site_writes_a_page_per_post() {
+        let out = std::env::temp_dir().join("ethang-blog-post-build-test");
+        let _ = std::fs::remove_dir_all(&out);
+        build_site(&out).unwrap();
+        let page =
+            std::fs::read_to_string(out.join("blog/after-spawn-returns/index.html")).unwrap();
+        assert!(page.contains("<meta property=\"og:type\" content=\"article\">"));
+        assert!(page.contains("article:published_time"));
+        assert!(page.contains("class=\"blog-prose\""));
+        // The MDX components render: a post image resolves to its built asset.
+        assert!(page.contains("/images/blog/after-spawn-returns/"));
+    }
+
+    #[test]
+    fn shell_marks_a_plain_page_as_a_website() {
+        let doc = Doc {
+            title: "T".into(),
+            description: None,
+            canonical: None,
+            article: None,
+            body: String::new(),
+        };
+        let html = render_doc(&doc);
+        assert!(html.contains("<meta property=\"og:type\" content=\"website\">"));
+        assert!(!html.contains("article:published_time"));
+    }
+
+    #[test]
+    fn shell_marks_an_article_and_emits_its_timestamps() {
+        let doc = Doc {
+            title: "T".into(),
+            description: None,
+            canonical: None,
+            article: Some(ArticleMeta {
+                published_time: "2024-01-02T00:00:00.000Z".into(),
+                modified_time: Some("2024-03-05T13:07:00.000Z".into()),
+            }),
+            body: String::new(),
+        };
+        let html = render_doc(&doc);
+        assert!(html.contains("<meta property=\"og:type\" content=\"article\">"));
+        assert!(html.contains(
+            "<meta property=\"article:published_time\" content=\"2024-01-02T00:00:00.000Z\">"
+        ));
+        assert!(html.contains(
+            "<meta property=\"article:modified_time\" content=\"2024-03-05T13:07:00.000Z\">"
+        ));
+    }
+
+    #[test]
+    fn shell_omits_the_modified_time_when_the_post_was_never_updated() {
+        let doc = Doc {
+            title: "T".into(),
+            description: None,
+            canonical: None,
+            article: Some(ArticleMeta {
+                published_time: "2024-01-02T00:00:00.000Z".into(),
+                modified_time: None,
+            }),
+            body: String::new(),
+        };
+        let html = render_doc(&doc);
+        assert!(html.contains("article:published_time"));
+        assert!(!html.contains("article:modified_time"));
     }
 }

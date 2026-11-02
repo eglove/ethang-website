@@ -1042,6 +1042,140 @@ hr {
   line-height: var(--text-xs-line);
 }
 
+/* ── Blog index and post pages ────────────────────────────────────────── */
+
+/* The index header: kicker, title, rule - the shape every page head uses. */
+.blog-head {
+  margin-block-end: var(--space-xl);
+}
+
+.blog-head__title {
+  margin-block: var(--space-2xs) var(--space-md);
+  font-size: var(--text-4xl);
+  line-height: var(--text-4xl-line);
+}
+
+/* The list: one card per post, stacked with a consistent gap. */
+.blog-list {
+  display: grid;
+  gap: var(--space-md);
+  margin-block-end: var(--space-xl);
+}
+
+.blog-card {
+  padding: var(--space-lg);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.blog-card:hover {
+  border-color: rgba(130, 170, 255, 0.6);
+}
+
+.blog-card__kicker {
+  margin-block-end: var(--space-sm);
+}
+
+.blog-card__title {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl-line);
+}
+
+/* The title is the card's whole target, so its underline is drawn in the
+ * border colour until hover: the card is the affordance, not the words. */
+.blog-card__link {
+  color: var(--night-owl-fg);
+  text-decoration: underline;
+  text-decoration-color: var(--night-owl-border);
+  text-underline-offset: 0.2em;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
+}
+
+.blog-card__link:hover {
+  color: var(--primary);
+  text-decoration-color: var(--primary);
+}
+
+.blog-card__stamp {
+  margin-block-start: var(--space-sm);
+  color: var(--night-owl-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+}
+
+.blog-card__stamp-label {
+  color: var(--night-owl-cyan);
+}
+
+/* The empty state: one centred card, same shape the old page used. */
+.blog-empty {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-xl);
+  margin-block-end: var(--space-xl);
+}
+
+.blog-empty__text {
+  color: var(--night-owl-muted);
+}
+
+/* Pagination: a centred row of page numbers with the two edges at the ends. */
+.blog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+.blog-pagination__number,
+.blog-pagination__edge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.25rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+  color: var(--night-owl-fg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+  text-decoration: none;
+  transition:
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.blog-pagination__number:hover,
+.blog-pagination__edge:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.blog-pagination__number--current {
+  border-color: var(--primary);
+  background-color: rgba(130, 170, 255, 0.2);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* A dead end is inert, not merely unlinked: dimmed, and not clickable. */
+.blog-pagination__edge--disabled {
+  color: var(--night-owl-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Post page: the title above the prose column. */
+.blog-post__title {
+  margin-block-end: var(--space-lg);
+  font-size: var(--text-4xl);
+  line-height: var(--text-4xl-line);
+}
+
 /* ── Print ────────────────────────────────────────────────────────────── */
 
 @media print {
