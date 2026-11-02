@@ -5,6 +5,7 @@ use std::path::Path;
 
 pub mod blog;
 pub mod home;
+pub mod learn;
 
 /// The article metadata a blog post adds to `<head>`.
 ///
@@ -185,7 +186,14 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
     };
     write_page(&out.join("index.html"), &doc)?;
     write_blog(out, &root)?;
+    write_learn(out, &root)?;
     Ok(())
+}
+
+/// Write the Learn page.
+fn write_learn(out: &Path, root: &Path) -> anyhow::Result<()> {
+    let stages = learn::load_learn(root)?;
+    write_page(&out.join("learn/index.html"), &learn::learn_doc(&stages))
 }
 
 /// Write one rendered document, creating the directories it needs.

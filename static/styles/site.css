@@ -1176,6 +1176,350 @@ hr {
   line-height: var(--text-4xl-line);
 }
 
+/* ── Learn page ───────────────────────────────────────────────────────── */
+
+/* The page head: kicker, title, rule - the shape every page head uses. */
+.learn-head {
+  margin-block-end: var(--space-lg);
+}
+
+.learn-head__title {
+  margin-block: var(--space-2xs) var(--space-md);
+  font-size: var(--text-4xl);
+  line-height: var(--text-4xl-line);
+}
+
+.learn-intro {
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-fg);
+}
+
+/* The map: ten stages as one list, each row a whole-row link. */
+.learn-map {
+  margin-block-start: var(--space-xl);
+}
+
+.learn-map__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block: 1px solid var(--night-owl-border);
+}
+
+.learn-map__item + .learn-map__item {
+  border-block-start: 1px solid var(--night-owl-border);
+}
+
+.learn-map__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-md);
+  padding: var(--space-sm) var(--space-2xs);
+  color: var(--night-owl-fg);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+
+.learn-map__link:hover {
+  background-color: var(--night-owl-surface);
+}
+
+.learn-map__number {
+  color: var(--night-owl-cyan);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+}
+
+.learn-map__title {
+  font-weight: 500;
+  transition: color 120ms ease;
+}
+
+.learn-map__link:hover .learn-map__title {
+  color: var(--primary);
+}
+
+.learn-map__count {
+  margin-inline-start: auto;
+  color: var(--night-owl-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+  white-space: nowrap;
+}
+
+/* The legend: each marker once, with the register it arrives in. */
+.learn-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-lg);
+  margin-block: var(--space-lg) 0;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.learn-legend__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.learn-legend__register {
+  margin: 0;
+  color: var(--night-owl-muted);
+}
+
+.learn-tally {
+  margin-block-start: var(--space-md);
+  color: var(--night-owl-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+}
+
+/* Stages: one section each, separated by a wide gap. */
+.learn-stages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+  margin-block-start: var(--space-2xl);
+}
+
+.learn-stage {
+  scroll-margin-block-start: var(--space-xl);
+}
+
+.learn-stage__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-md);
+  margin-block-end: var(--space-sm);
+}
+
+.learn-stage__number {
+  color: var(--night-owl-cyan);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+  font-weight: 700;
+}
+
+.learn-stage__title {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl-line);
+}
+
+.learn-stage__markers {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--night-owl-muted);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+}
+
+.learn-stage__lede {
+  margin-block-start: var(--space-md);
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-fg);
+}
+
+.learn-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-block-start: var(--space-md);
+}
+
+.learn-group {
+  padding: var(--space-lg);
+}
+
+.learn-group__heading {
+  font-size: var(--text-lg);
+  line-height: var(--text-lg-line);
+}
+
+.learn-group__blurb {
+  margin-block-start: var(--space-xs);
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+/* Entries: a bordered run, one row per source. */
+.learn-entries {
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  list-style: none;
+  border-block-start: 1px solid var(--night-owl-border);
+}
+
+.learn-entry {
+  padding-block: var(--space-sm);
+}
+
+.learn-entry + .learn-entry {
+  border-block-start: 1px solid var(--night-owl-border);
+}
+
+.learn-entry__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-sm);
+}
+
+.learn-entry__title {
+  color: var(--night-owl-fg);
+  font-weight: 500;
+}
+
+/* The title is the target, so its underline is drawn in the border colour
+ * until hover: the row is the affordance, not the words. */
+.learn-entry__link {
+  color: var(--night-owl-fg);
+  text-decoration: underline;
+  text-decoration-color: var(--night-owl-border);
+  text-underline-offset: 0.2em;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
+}
+
+.learn-entry__link:hover {
+  color: var(--primary);
+  text-decoration-color: var(--primary);
+}
+
+.learn-entry__by {
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+/* A cross-reference reads as a chip: small, bordered, cyan. */
+.learn-entry__also {
+  padding: 0.125rem 0.5rem;
+  border: 1px solid rgba(127, 219, 202, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--night-owl-cyan);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 120ms ease;
+}
+
+.learn-entry__also:hover {
+  border-color: var(--night-owl-cyan);
+}
+
+.learn-entry__note {
+  margin-block-start: var(--space-2xs);
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+/* The two closing blocks: the check, then what to pair the stage with. */
+.learn-done {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2xs) var(--space-sm);
+  margin-block-start: var(--space-md);
+  padding-inline-start: var(--space-md);
+  border-inline-start: 2px solid rgba(127, 219, 202, 0.5);
+}
+
+.learn-done__text {
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-fg);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.learn-pair {
+  margin-block-start: var(--space-md);
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
+.learn-pair__label {
+  color: var(--night-owl-cyan);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Marker badges: an inline glyph tinted per register. The icon carries the
+ * meaning; the tint only groups entries of one format at a glance. */
+.marker-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: 0.125rem 0.375rem;
+  border: 1px solid var(--night-owl-border);
+  border-radius: var(--radius-md);
+}
+
+.marker-badge__icon {
+  flex-shrink: 0;
+}
+
+.marker-badge__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-line);
+}
+
+.marker-badge--video {
+  border-color: rgba(127, 219, 202, 0.4);
+  background-color: rgba(127, 219, 202, 0.1);
+  color: var(--night-owl-cyan);
+}
+
+.marker-badge--course {
+  border-color: rgba(130, 170, 255, 0.4);
+  background-color: rgba(130, 170, 255, 0.1);
+  color: var(--primary);
+}
+
+.marker-badge--book {
+  border-color: rgba(199, 146, 234, 0.4);
+  background-color: rgba(199, 146, 234, 0.1);
+  color: var(--night-owl-purple);
+}
+
+.marker-badge--lab {
+  border-color: rgba(197, 228, 120, 0.4);
+  background-color: rgba(197, 228, 120, 0.1);
+  color: var(--success);
+}
+
+.marker-badge--paper {
+  border-color: rgba(236, 196, 141, 0.4);
+  background-color: rgba(236, 196, 141, 0.1);
+  color: var(--warning);
+}
+
+.marker-badge--corpus {
+  border-color: rgba(247, 140, 108, 0.4);
+  background-color: rgba(247, 140, 108, 0.1);
+  color: var(--night-owl-orange);
+}
 /* ── Print ────────────────────────────────────────────────────────────── */
 
 @media print {
