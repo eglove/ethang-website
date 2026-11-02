@@ -9,7 +9,7 @@
 //! and numbers, cross-references that resolve - so a typo in the TOML fails the
 //! build instead of rendering a badge with no glyph.
 
-use crate::html::{el, escape, void_el};
+use crate::html::{el, escape};
 use crate::pages::{Doc, SITE};
 use anyhow::{Context, Result, bail};
 use std::collections::BTreeSet;
@@ -47,8 +47,20 @@ pub struct Entry {
     pub also_in: Vec<u8>,
 }
 
-/// The intro paragraph, verbatim from the old page.
-pub const INTRO: &str = "The material that teaches the part a model cannot do for you: deciding what to build, specifying it so a machine can execute it, and checking the result. Work the stages in order, or jump to the one you are missing. Every stage mixes something you can follow along with and something worth returning to, and ends with a check you can run to know it landed.";
+/// The intro paragraph, and the page's description tag.
+pub const INTRO: &str = "A curriculum for people who write software with AI assistance, and who want to be able to judge the result. Ten stages, in order, covering what to build, how to specify it precisely enough to check, and how to measure whether it worked. Every stage mixes something you can follow along with and something worth returning to, and ends with a check you can run to know it landed.";
+
+/// What a reader who has never seen the page should do first.
+///
+/// The two stage numbers are resolved against the parsed curriculum, so a
+/// renumbered or renamed stage fails the build instead of rendering a link to
+/// an anchor that does not exist.
+const START_HERE: (u8, &str, u8, &str) = (
+    1,
+    "the shell and the editor",
+    6,
+    "the scientific method itself",
+);
 
 /// The six markers, in the order the legend lists them.
 pub const MARKERS: [&str; 6] = ["video", "course", "book", "lab", "paper", "corpus"];
@@ -182,6 +194,7 @@ pub fn render(stages: &[Stage]) -> String {
         &[
             head(),
             intro(),
+            start_here(stages),
             stage_map(stages),
             legend(),
             tally(stages),
@@ -219,6 +232,41 @@ fn head() -> String {
 
 fn intro() -> String {
     el("p", &[("class", "learn-intro")], &[escape(INTRO)])
+}
+
+/// The one paragraph that tells a first-time reader where to begin.
+///
+/// Returns nothing when either stage is missing, so the page still renders
+/// from partial data rather than emitting a link to a missing anchor.
+fn start_here(stages: &[Stage]) -> String {
+    let (first_number, first_label, method_number, method_label) = START_HERE;
+    let (Some(first), Some(method)) = (
+        stages.iter().find(|stage| stage.number == first_number),
+        stages.iter().find(|stage| stage.number == method_number),
+    ) else {
+        return String::new();
+    };
+    let first_href = format!("#{}", first.slug);
+    let method_href = format!("#{}", method.slug);
+    el(
+        "p",
+        &[("class", "learn-start")],
+        &[
+            escape("New here? Start with "),
+            el(
+                "a",
+                &[("href", first_href.as_str())],
+                &[escape(&format!("{first_number}. {first_label}"))],
+            ),
+            escape(", then jump to "),
+            el(
+                "a",
+                &[("href", method_href.as_str())],
+                &[escape(&format!("{method_number}. {method_label}"))],
+            ),
+            escape(". The rest can wait until you need it."),
+        ],
+    )
 }
 
 /// The map first: ten stages, what each is for, and how much is in it.
@@ -473,9 +521,13 @@ fn badge_icon(marker: &str, size: u8) -> String {
         ("aria-hidden", "true"),
         ("class", "marker-badge__icon"),
     ];
+    // `path` is not a void element, and `void_el` would emit `<path ...>`
+    // with no closing tag. An SVG parser reads that as an unclosed child, so
+    // every path after the first became a nested node with no geometry of its
+    // own: the badge kept one stroke of a multi-path icon and the rest vanished.
     let paths: Vec<String> = marker_paths(marker)
         .iter()
-        .map(|d| void_el("path", &[("d", d)]))
+        .map(|d| el("path", &[("d", d)], &[]))
         .collect();
     el("svg", &attrs, &paths)
 }
@@ -730,15 +782,130 @@ mod tests {
     }
 
     #[test]
+    fn no_entry_links_to_this_site() {
+        // The curriculum cites what earns its place elsewhere. A post of ours
+        // is the thing the page is meant to make checkable, so it is not a
+        // source for it, and a self-link would make the tally claim more
+        // sources than the page actually offers.
+        let stages = load_learn(&crate::pages::content_root()).unwrap();
+        for stage in &stages {
+            for entry in stage_entries(stage) {
+                if let Some(url) = &entry.url {
+                    assert!(
+                        !url.contains("ethang.dev"),
+                        "stage {} entry `{}` links back to this site: {url}",
+                        stage.number,
+                        entry.title
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_icon_path_is_closed() {
+        // An unclosed `<path>` is valid enough HTML to survive a render and
+        // invalid enough SVG to lose the glyph: the parser nests every later
+        // path inside the first, and only that one gets drawn.
+        let html = render(&[stage()]);
+        for marker in MARKERS {
+            let paths = MARKER_PATHS
+                .iter()
+                .find(|(name, _)| *name == marker)
+                .unwrap()
+                .1;
+            assert!(
+                html.contains(&format!("aria-label=\"{marker}\"")),
+                "no badge rendered for {marker}"
+            );
+            for d in paths {
+                assert!(
+                    html.contains(&format!("<path d=\"{d}\"></path>")),
+                    "{marker} has an unclosed path"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_multi_path_icon_carries_every_path() {
+        let html = render(&[stage()]);
+        let book = MARKER_PATHS
+            .iter()
+            .find(|(name, _)| *name == "book")
+            .unwrap();
+        assert!(book.1.len() > 1, "the fixture assumes a multi-path icon");
+        let start = html.find("aria-label=\"book\"").unwrap();
+        let end = html[start..].find("</svg>").unwrap() + start;
+        let icon = &html[start..end];
+        for d in book.1 {
+            assert!(icon.contains(d), "the book badge dropped a path");
+        }
+    }
+
+    #[test]
     fn parses_the_shipped_curriculum() {
         let stages = load_learn(&crate::pages::content_root()).unwrap();
         assert_eq!(stages.len(), 10);
-        assert_eq!(total_entries(&stages), 97);
+        assert_eq!(total_entries(&stages), 103);
         assert_eq!(stages[0].slug, "fluency");
         assert_eq!(stages[9].number, 10);
         let html = render(&stages);
-        assert!(html.contains("10 stages / 97 sources"));
+        assert!(html.contains("10 stages / 103 sources"));
         assert!(html.contains("id=\"the-primary-record\""));
+    }
+
+    #[test]
+    fn the_shipped_curriculum_carries_the_method_sources() {
+        let stages = load_learn(&crate::pages::content_root()).unwrap();
+        let stage = stages
+            .iter()
+            .find(|stage| stage.number == 6)
+            .expect("stage 6 is missing");
+        let group = stage
+            .groups
+            .iter()
+            .find(|group| {
+                group.heading.as_deref() == Some("The method itself, before any of the tools")
+            })
+            .expect("the method-sources group is missing from stage 6");
+        // The group leads the stage, before the tooling groups.
+        assert!(std::ptr::eq(&stage.groups[0], group));
+        for title in [
+            "Understanding Science 101",
+            "Cargo Cult Science",
+            "Calling Bullshit",
+            "Testing Treatments",
+            "Statistics Done Wrong",
+            "The Knowledge Machine",
+            "Science Fictions",
+        ] {
+            assert!(
+                group.entries.iter().any(|entry| entry.title == title),
+                "the method group is missing {title}"
+            );
+        }
+    }
+
+    #[test]
+    fn renders_a_start_here_pointer_between_the_intro_and_the_map() {
+        let mut method = stage();
+        method.number = 6;
+        method.slug = "checking-the-result".into();
+        let html = render(&[stage(), method]);
+        assert!(html.contains("learn-start"));
+        assert!(html.contains("href=\"#fluency\""));
+        assert!(html.contains("href=\"#checking-the-result\""));
+        assert!(html.contains("the scientific method itself"));
+    }
+
+    #[test]
+    fn the_start_here_pointer_renders_nothing_without_its_stages() {
+        // One stage alone cannot satisfy both halves of the pointer, and an
+        // anchor to a stage that is not on the page would be a dead link.
+        let html = render(&[stage()]);
+        assert!(!html.contains("learn-start"));
+        assert!(!html.contains("New here?"));
     }
 
     #[test]

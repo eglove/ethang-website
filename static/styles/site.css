@@ -1202,6 +1202,15 @@ hr {
   color: var(--night-owl-fg);
 }
 
+/* Where to begin: quieter than the intro, since it repeats the map below. */
+.learn-start {
+  margin-block-start: var(--space-md);
+  max-inline-size: var(--prose-measure);
+  color: var(--night-owl-muted);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-line);
+}
+
 /* The map: ten stages as one list, each row a whole-row link. */
 .learn-map {
   margin-block-start: var(--space-xl);

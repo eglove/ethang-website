@@ -1,7 +1,13 @@
 # The Learn curriculum: the ten stages of "Courses for people who use AI to
 # write software", carried as data so the page renders structure rather than
-# prose. Transcribed verbatim from the Astro site's src/lib/learn.ts — every
-# lede, blurb, and note is carried character for character.
+# prose. The structure and most of the copy came from the Astro site's
+# src/lib/learn.ts. The wording has since been edited for a reader who has
+# never seen this page, and stage 6 gained a set of sources on the scientific
+# method itself.
+#
+# Every entry cites an external source. Nothing here links back to this site's
+# own posts, which are the thing the curriculum is meant to make checkable
+# rather than the evidence for it.
 #
 # The list's own rule is why it is shaped this way: anything the model
 # produces on demand is a prompt, not a course. A course earns its place by
@@ -22,7 +28,7 @@
 number = 1
 slug = 'fluency'
 title = 'Fluency'
-lede = 'The unglamorous prerequisites that make everything after it cheap. Do this first and the rest of the list takes half the time.'
+lede = 'The unglamorous prerequisites that make everything after them cheap. Do this stage first and the rest of the curriculum takes half the time.'
 doneWhen = 'You can start a project, commit, run it, break it, and read the error without leaving the shell.'
 pairWith = 'Watch the Hard Parts series in sequence, because each one assumes the model the last one built. Take Missing Semester first if the shell is still unfamiliar.'
 
@@ -31,7 +37,7 @@ pairWith = 'Watch the Hard Parts series in sequence, because each one assumes th
 [[stages.groups.entries]]
 marker = 'video'
 title = 'The Missing Semester of Your CS Education'
-note = 'Shell, editors, version control, debugging, profiling. Taught as a series of live sessions, and the single best hour-to-value ratio on this list.'
+note = 'Shell, editors, version control, debugging, profiling. Taught as a series of live sessions, and the single best hour-to-value ratio on this page.'
 by = 'MIT'
 url = 'https://missing.csail.mit.edu/'
 
@@ -99,9 +105,9 @@ alsoIn = [8]
 number = 2
 slug = 'how-the-machine-works'
 title = 'How the machine works'
-lede = "What a line of code actually does to the machine, and roughly what it costs. You can read an agent's output only to the depth you can read the machine underneath it."
+lede = 'What a line of code actually does to the machine, and roughly what it costs. You can only judge code you did not write to the depth you understand the machine underneath it.'
 doneWhen = 'From reading one line, you can say what the machine does with it and roughly what it costs.'
-pairWith = 'Build it with Nand to Tetris, read Code for the map, then take SICP when you want to know what an abstraction actually is.'
+pairWith = 'Build it with Nand to Tetris, read Code for the map, then read Structure and Interpretation of Computer Programs when you want to know what an abstraction actually is.'
 
 [[stages.groups]]
 
@@ -128,7 +134,7 @@ url = 'https://www.computerenhance.com/'
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Structure and Interpretation of Computer Programs'
-note = 'The deepest available treatment of what an abstraction is, free online, with the 1986 MIT lectures and OCW 6.001 alongside it.'
+note = 'The deepest available treatment of what an abstraction is, free online, with the 1986 MIT lectures and an OpenCourseWare version alongside it.'
 by = 'Abelson and Sussman'
 url = 'https://sarabander.github.io/sicp/'
 
@@ -152,7 +158,7 @@ pairWith = 'Start with The Mom Test for the conversations, then Domain Modeling 
 [[stages.groups.entries]]
 marker = 'book'
 title = 'The Mom Test'
-note = 'Customer conversations without the flattery. Short, funny, and the fastest read on this list.'
+note = 'Customer conversations without the flattery. Short, funny, and the fastest read here.'
 by = 'Rob Fitzpatrick'
 url = 'https://www.momtestbook.com/'
 
@@ -187,7 +193,7 @@ url = 'https://pragprog.com/titles/swdddf/domain-modeling-made-functional/'
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Problem Frames'
-note = 'No stable public URL, so cite by title. The best treatment of why the hard part of a requirement is the boundary between the machine and the world it models.'
+note = 'The best treatment of why the hard part of a requirement is the boundary between the machine and the world it models. The book has no stable public page, so look it up by title.'
 by = 'Michael Jackson'
 
 [[stages]]
@@ -195,7 +201,7 @@ number = 4
 slug = 'specifying-so-a-machine-can-execute-it'
 title = 'Specifying so a machine can execute it'
 lede = "How to write a specification precise enough that a machine can execute it, then check the result against the system's own behavior."
-doneWhen = "tlc finds an interleaving bug you predicted before running it, or your model passes conformance against your own service's traces."
+doneWhen = "The TLA+ model checker finds an interleaving bug you predicted before running it, or your model passes conformance against your own service's traces."
 pairWith = 'Watch Lamport first for the artifact, then read Wayne for how specs get adopted. Learn TLA+ alone and you write specs nobody runs.'
 
 [[stages.groups]]
@@ -237,7 +243,7 @@ blurb = 'Proof, model checking, and the current shape of spec-first tooling. Tem
 [[stages.groups.entries]]
 marker = 'paper'
 title = 'SysMoBench'
-note = 'The falsifier for any claim that the model has this handled. Agents formally model eleven real system artifacts in TLA+, and the strongest models still fail on conformance for the largest ones.'
+note = 'A test of the claim that an AI model has formal specification handled. Agents formally model eleven real system artifacts in TLA+, and the strongest models still fail on conformance for the largest ones.'
 url = 'https://arxiv.org/abs/2509.23130'
 
 [[stages.groups.entries]]
@@ -268,7 +274,7 @@ url = 'https://github.com/github/spec-kit'
 [[stages.groups.entries]]
 marker = 'paper'
 title = 'The MCP specification'
-note = "The interface contract for tool use. Specifying an agent's tool surface is this skill applied."
+note = "The interface contract for tool use. Specifying the tools an AI agent can call is this stage's skill applied."
 url = 'https://modelcontextprotocol.io'
 
 [[stages.groups.entries]]
@@ -290,14 +296,14 @@ pairWith = 'Read Crafting Interpreters to see how the tools are built, then Lega
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Crafting Interpreters'
-note = 'Build a parser, a resolver, and a bytecode VM. Every indexer, analyzer, and code-graph tool becomes readable afterward, because you have written the thing they are built from. Also the best-written technical book on this list.'
+note = 'Build a parser, a resolver, and a bytecode VM. Every indexer, analyzer, and code-graph tool becomes readable afterward, because you have written the thing they are built from. Also the best-written technical book on this page.'
 by = 'Robert Nystrom'
 url = 'https://craftinginterpreters.com/'
 
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Working Effectively with Legacy Code'
-note = 'Cite by title. Sensing and separation, the canonical text on making untested code observable, which is what reading agent output requires.'
+note = 'Sensing and separation, the canonical text on making untested code observable, which is what reading code you did not write requires.'
 by = 'Michael Feathers'
 
 [[stages.groups.entries]]
@@ -310,8 +316,8 @@ url = 'https://www.manning.com/books/the-programmers-brain'
 [[stages.groups.entries]]
 marker = 'lab'
 title = 'Static analysis'
-note = "Soundness versus completeness, and Tricorder's finding that a noisy check trains developers to ignore the tool."
-url = 'https://github.com/google/tricorder'
+note = 'Soundness versus completeness, and how a noisy check trains developers to ignore the tool. Chapter 20 of Software Engineering at Google, on the Tricorder platform.'
+url = 'https://abseil.io/resources/swe-book/html/ch20.html'
 
 [[stages.groups.entries]]
 marker = 'paper'
@@ -328,8 +334,60 @@ doneWhen = 'Deliberately break the code and a test fails, with a mutation score 
 pairWith = 'Start with Web App Testing, then add one measurement you do not already have: mutation score, a fuzz target, or a property test.'
 
 [[stages.groups]]
-heading = 'The method and the loop'
-blurb = 'Start with the follow-along material. Testing is the stage where a video course beats a book most clearly, because the loop of write, run, watch it fail is something you learn by doing.'
+heading = 'The method itself, before any of the tools'
+blurb = "Everything in this stage is the scientific method applied to software. These are the general sources on the method: how it works, where it goes wrong, and what an honest test costs. None of them assume a background in science, and all of them are free."
+
+[[stages.groups.entries]]
+marker = 'course'
+title = 'Understanding Science 101'
+note = 'The clearest plain-language account of how science actually works, written for the public and for teachers. Its most useful page is the one that takes apart the tidy textbook version: there is no single method that all scientists follow, and the loop is messier and more honest than the diagram.'
+by = 'University of California Museum of Paleontology, Berkeley'
+url = 'https://undsci.berkeley.edu/understanding-science-101/'
+
+[[stages.groups.entries]]
+marker = 'paper'
+title = 'Cargo Cult Science'
+note = "Feynman's 1974 commencement address, and the shortest useful statement of the whole discipline: the first principle is that you must not fool yourself, and you are the easiest person to fool. Read it for the reason a check has to be able to fail, not for the story about the Wesson Oil advertisement."
+by = 'Richard Feynman'
+url = 'https://calteches.library.caltech.edu/51/2/CargoCult.htm'
+
+[[stages.groups.entries]]
+marker = 'video'
+title = 'Calling Bullshit'
+note = 'A University of Washington course, recorded as ten hour-long lectures and free to watch. It teaches the reading half of the method: how a claim is dressed up, which statistics get abused, and what evidence would actually settle the question. The book of the same name covers the same ground.'
+by = 'Carl Bergstrom, Jevin West'
+url = 'https://callingbullshit.org/videos.html'
+
+[[stages.groups.entries]]
+marker = 'book'
+title = 'Testing Treatments'
+note = 'Free online in full, in fifteen languages. The best worked example of the method anywhere: how we know whether a medical treatment works, told through the history of the fair test. If you want one book that shows why a control group, a control for bias, and a check on chance are not bureaucratic details, this is it.'
+by = 'Imogen Evans, Hazel Thornton, Iain Chalmers, Paul Glasziou'
+url = 'https://en.testingtreatments.org/book/'
+
+[[stages.groups.entries]]
+marker = 'book'
+title = 'Statistics Done Wrong'
+note = 'Free online, and it assumes no statistics. A catalogue of the errors that get published every day, which is the same list of errors that turns up in a benchmark, a dashboard, or an A/B test result.'
+by = 'Alex Reinhart'
+url = 'https://www.statisticsdonewrong.com/'
+
+[[stages.groups.entries]]
+marker = 'book'
+title = 'The Knowledge Machine'
+note = 'Why the method took so long to invent, and why it works even though scientists are not especially rational. The argument is that science succeeded by adopting one narrow rule, that claims must answer to observation and experiment, and by shutting out everything else. Useful for anyone tempted to treat reasoning as the whole of thinking.'
+by = 'Michael Strevens'
+
+[[stages.groups.entries]]
+marker = 'book'
+title = 'Science Fictions'
+note = 'How good research goes wrong: fraud, sloppy statistics, publication bias, and hype, with the replication crisis as the worked case. The most readable account of why a published result is a claim and not a fact.'
+by = 'Stuart Ritchie'
+url = 'https://www.sciencefictions.org/p/book'
+
+[[stages.groups]]
+heading = 'The loop'
+blurb = 'Then the follow-along material. Testing is the stage where a video course beats a book most clearly, because the loop of write, run, watch it fail is something you learn by doing.'
 
 [[stages.groups.entries]]
 marker = 'video'
@@ -373,7 +431,7 @@ url = 'https://www.obeythetestinggoat.com/'
 [[stages.groups.entries]]
 marker = 'course'
 title = 'Fuzzing101'
-note = 'Free. Ten exercises that fuzz real CVEs in real projects. The most satisfying thing on this list, because you find actual bugs.'
+note = 'Free. Ten exercises that fuzz real CVEs in real projects. The most satisfying thing here, because you find actual bugs.'
 by = 'Antonio Morales'
 url = 'https://github.com/antonio-morales/Fuzzing101'
 
@@ -412,7 +470,7 @@ url = 'https://playwright.dev/'
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Why Programs Fail'
-note = 'Cite by title. The book-length treatment, in a different register.'
+note = 'The book-length treatment of the same subject, in a different register. The book has no stable public page, so look it up by title.'
 by = 'Andreas Zeller'
 
 [[stages.groups]]
@@ -463,12 +521,6 @@ note = 'Delivery measured as a rate rather than asserted, and the source of the 
 by = 'Forsgren, Humble, Kim'
 url = 'https://itrevolution.com/product/accelerate/'
 
-[[stages.groups.entries]]
-marker = 'course'
-title = 'The scientific loop as a gate'
-note = 'The ledger discipline: a prediction cannot be recorded without naming the command that would refute it, and a verdict cannot be recorded without evidence.'
-url = 'https://ethang.dev/blog/skills-that-teach-the-scientific-method'
-
 [[stages]]
 number = 7
 slug = 'operating-what-shipped'
@@ -484,7 +536,7 @@ blurb = 'The expensive-to-check side of the job happens after deploy, in cost, l
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Designing Data-Intensive Applications'
-note = 'The model of correctness under partition, which is the reasoning an agent cannot do for you.'
+note = 'The model of correctness under partition, which is the reasoning no tool will do for you.'
 by = 'Martin Kleppmann'
 url = 'https://dataintensive.net/'
 
@@ -512,7 +564,7 @@ url = 'https://pages.cs.wisc.edu/~remzi/OSTEP/'
 [[stages.groups.entries]]
 marker = 'book'
 title = "Beej's Guide to Network Programming"
-note = 'The timeout and partial-failure reasoning behind any retry you write. A timeout does not prove the request failed, which is the judgment an agent will not supply.'
+note = 'The timeout and partial-failure reasoning behind any retry you write. A timeout does not prove the request failed, and no tool will make that judgment for you.'
 url = 'https://beej.us/guide/bgnet/'
 
 [[stages.groups.entries]]
@@ -531,7 +583,7 @@ url = 'https://sre.google/sre-book/table-of-contents/'
 [[stages.groups.entries]]
 marker = 'lab'
 title = 'SRE Classroom'
-note = 'Free self-paced workshops where you design a system under real constraints. The closest thing to a game in this list.'
+note = 'Free self-paced workshops where you design a system under real constraints. The closest thing to a game on this page.'
 url = 'https://sre.google/classroom/'
 
 [[stages.groups]]
@@ -565,7 +617,7 @@ url = 'https://slsa.dev/'
 [[stages.groups.entries]]
 marker = 'book'
 title = 'Observability Engineering'
-note = 'Cite by title. The publisher page returns 403 to fetches.'
+note = 'The publisher has no stable public page, so look it up by title.'
 by = 'Majors, Fong-Jones, Miranda'
 
 [[stages]]
@@ -611,7 +663,7 @@ url = 'https://udlbook.github.io/udlbook/'
 [[stages.groups.entries]]
 marker = 'book'
 title = 'AI Engineering'
-note = 'Cite by title. The publisher page returns 403 to fetches, so her blog is the free entry point.'
+note = 'The publisher has no stable public page, so her site is the entry point.'
 by = 'Chip Huyen'
 url = 'https://huyenchip.com/blog/'
 
@@ -622,7 +674,7 @@ blurb = "Evals are the checking track for this stage, and the skeptical empirica
 [[stages.groups.entries]]
 marker = 'paper'
 title = 'Building effective agents'
-note = 'The clearest short account of what an agent is and when not to build one.'
+note = 'The clearest short account of what an AI agent is, and of when not to build one.'
 by = 'Anthropic'
 url = 'https://www.anthropic.com/engineering/building-effective-agents'
 
