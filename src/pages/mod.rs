@@ -3,6 +3,8 @@
 use crate::html::{el, escape, raw, void_el};
 use std::path::Path;
 
+pub mod home;
+
 /// A complete page: what goes in `<head>` and what goes in `<main>`.
 pub struct Doc {
     pub title: String,
@@ -115,12 +117,29 @@ pub fn render_doc(doc: &Doc) -> String {
     )
 }
 
+/// The content root: `content/` beside the crate.
+pub fn content_root() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("content")
+}
+
 /// Render the whole site into `out`.
 ///
 /// Each page module contributes its own output; this is the entry point that
 /// creates the output tree and (from Task 12) copies `static/` alongside it.
 pub fn build_site(out: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(out)?;
+    let home_data = home::load_home(&content_root())?;
+    let home_body = home::render(&home_data);
+    let doc = Doc {
+        title: "Ethan Glover".into(),
+        description: Some(
+            "Software engineer and builder. I build resilient software, clarify complex domains, and leave systems easier to change."
+                .into(),
+        ),
+        canonical: Some(format!("{SITE}/")),
+        body: home_body,
+    };
+    std::fs::write(out.join("index.html"), render_doc(&doc))?;
     Ok(())
 }
 
@@ -194,6 +213,16 @@ mod tests {
         }
         assert!(html.contains("<footer class=\"site-footer\">"));
         assert!(html.contains("<main>"));
+    }
+
+    #[test]
+    fn build_site_writes_the_home_page() {
+        let out = std::env::temp_dir().join("ethang-home-build-test");
+        let _ = std::fs::remove_dir_all(&out);
+        build_site(&out).unwrap();
+        let html = std::fs::read_to_string(out.join("index.html")).unwrap();
+        assert!(html.contains("Ethan Glover"));
+        assert!(html.contains("13 client projects / 5 internal builds"));
     }
 
     #[test]
