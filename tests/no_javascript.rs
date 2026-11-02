@@ -57,3 +57,53 @@ fn build_output_contains_no_javascript_or_typescript() {
         "build emitted JavaScript/TypeScript: {offenders:#?}"
     );
 }
+
+#[test]
+fn build_output_contains_no_script_tags() {
+    let dist = Path::new(env!("CARGO_MANIFEST_DIR")).join("dist");
+    if !dist.exists() {
+        return;
+    }
+    let mut files = Vec::new();
+    walk(&dist, &mut files);
+    for file in files
+        .iter()
+        .filter(|f| f.extension().and_then(|e| e.to_str()) == Some("html"))
+    {
+        let html = std::fs::read_to_string(file).unwrap();
+        assert!(
+            !html.contains("<script"),
+            "{} contains a script tag",
+            file.display()
+        );
+    }
+}
+
+#[test]
+fn build_output_contains_no_inline_event_handlers() {
+    let dist = Path::new(env!("CARGO_MANIFEST_DIR")).join("dist");
+    if !dist.exists() {
+        return;
+    }
+    let mut files = Vec::new();
+    walk(&dist, &mut files);
+    for file in files
+        .iter()
+        .filter(|f| f.extension().and_then(|e| e.to_str()) == Some("html"))
+    {
+        let html = std::fs::read_to_string(file).unwrap();
+        for handler in [
+            " onclick=",
+            " onload=",
+            " onsubmit=",
+            " onerror=",
+            " onmouseover=",
+        ] {
+            assert!(
+                !html.contains(handler),
+                "{} contains {handler}",
+                file.display()
+            );
+        }
+    }
+}
