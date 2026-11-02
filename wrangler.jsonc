@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "ethang-website",
+  "compatibility_date": "2026-09-21",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "ethang.dev", "custom_domain": true },
+    { "pattern": "www.ethang.dev", "custom_domain": true }
+  ],
+  "observability": { "enabled": true }
+}

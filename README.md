@@ -23,6 +23,40 @@ cargo run -- build --out tmp  # writes elsewhere
 cargo test                    # includes the no-JavaScript guard
 ```
 
+## Deploy
+
+`wrangler.jsonc` is the deploy configuration: JSONC, not TypeScript. It declares the
+`./dist` asset directory, `html_handling: "auto-trailing-slash"` (every route is emitted
+as `<route>/index.html`, so a slash-free request such as `/blog/alpha` must resolve from
+`blog/alpha/index.html`), `not_found_handling: "404-page"` (the generated `404.html`),
+and the `ethang.dev` / `www.ethang.dev` custom domains. There is no `main` and no
+`assets.binding`: nothing runs on the server, the assets are the whole deployment.
+
+```sh
+cargo run --release -- build --out dist
+cf deploy --prebuilt            # uploads the existing dist/
+cf deploy --dry-run --prebuilt  # checks the config without uploading
+```
+
+`tests/deploy_config.rs` pins the parts of the config the build depends on, and fails if
+a `cloudflare.config.ts`, `wrangler.config.ts`, or `vite.config.ts` reappears.
+
+### Why not `cf init`
+
+`cf init` scaffolds a TypeScript project (`cloudflare.config.ts`, `vite.config.ts`,
+`src/index.ts`) and expects a Node manifest. `cf deploy` without a config file does the
+same thing on the fly: it autoconfigures, offers to write those files, and then aborts
+because this repository has no `package.json`, `pyproject.toml`, or dev-server package.
+Run it only once `wrangler.jsonc` exists and with `--prebuilt`, so it reads the config
+instead of autoconfiguring. Verified with `cf` 1.0.0-beta.5.
+
+## Dropped pages
+
+The old site's private pages are intentionally not part of this rewrite: `/rss`,
+`/applications`, `/applications/[id]/resume`, and `/login`. They depended on worker
+bindings and a login flow, which an assets-only deployment cannot serve. Do not
+reimplement them here.
+
 ## Toolchain note
 
 `rust-toolchain.toml` pins the GNU toolchain. This machine has no MSVC linker
@@ -45,3 +79,4 @@ toolchain brings its own linker and needs no Visual Studio install.
 | `static/` | Fonts, favicon, committed diagram SVGs |
 | `content/` | Markdown posts and pages |
 | `tests/` | Guard tests |
+| `wrangler.jsonc` | Deploy configuration |
