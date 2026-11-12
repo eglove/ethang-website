@@ -10,6 +10,7 @@ pub mod diagrams;
 pub mod highlight;
 pub mod html;
 pub mod images;
+pub mod links;
 pub mod llms;
 pub mod markdown;
 pub mod math;

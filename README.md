@@ -100,8 +100,22 @@ carries a `<style>` element holding only the rules whose selectors can match tha
 page; `tests/css_pruning.rs` proves the pruned sheet matches exactly what the full
 sheet matches, element for element, on every built page.
 
-`tests/css_pruning.rs` and `tests/parity.rs` both read the committed `dist/`, so
-run `cargo run --release -- build` before `cargo test` when either fails.
+`tests/css_pruning.rs`, `tests/parity.rs`, and `tests/external_links.rs` all
+read the committed `dist/`, so run `cargo run --release -- build` before
+`cargo test` when any of them fails.
+
+## Links
+
+A link to another site opens in a new tab. `src/links.rs` rewrites every
+anchor in the finished page whose `href` names a host other than `ethang.dev`,
+adding `target="_blank"` and `rel="noopener noreferrer"`; a link within the
+site, a `#fragment`, and a `mailto:` or `tel:` URL are left alone. The rewrite
+runs once over the whole page rather than at each of the places an anchor is
+built, because those places are in half a dozen modules and in markdown, and a
+rule that has to be remembered in each of them is a rule that will be forgotten
+in one. `tests/external_links.rs` checks every page the build writes, in both
+directions: an external link that stays in the tab fails, and so does an
+internal link that leaves it.
 
 ## Toolchain note
 
@@ -116,6 +130,7 @@ toolchain brings its own linker and needs no Visual Studio install.
 | `src/main.rs` | CLI: `build --out <dir>` |
 | `src/lib.rs` | Module tree |
 | `src/html.rs` | Escaping and the element builder |
+| `src/links.rs` | External links open in a new tab |
 | `src/content.rs` | Frontmatter, post loading, pagination |
 | `src/markdown.rs` | Markdown plus the MDX component expander |
 | `src/highlight.rs` | Build-time syntax highlighting |

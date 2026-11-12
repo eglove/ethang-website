@@ -135,7 +135,8 @@ const NOT_FOUND_LINE: &str = "There is no page at this address. It may have move
 pub fn render_doc(doc: &Doc, links: Links<'_>, styles: &SiteStyles) -> String {
     let bare = render_shell(doc, links, "");
     let css = styles.for_page(&bare);
-    crate::html::minify(&render_shell(doc, links, &css))
+    let page = crate::links::external_links(&render_shell(doc, links, &css));
+    crate::html::minify(&page)
 }
 
 /// The page with `css` in its head, unminified.

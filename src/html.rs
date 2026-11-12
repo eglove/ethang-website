@@ -187,7 +187,7 @@ fn collapse(text: &str, before: Option<&str>, after: Option<&str>) -> String {
     text.to_string()
 }
 
-fn find_ascii_case_insensitive(haystack: &str, needle: &str) -> Option<usize> {
+pub(crate) fn find_ascii_case_insensitive(haystack: &str, needle: &str) -> Option<usize> {
     let haystack = haystack.as_bytes();
     let needle = needle.as_bytes();
     if needle.is_empty() || haystack.len() < needle.len() {
