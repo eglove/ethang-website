@@ -84,14 +84,6 @@ Fonts are subsets. `assets/fonts/` holds the originals and
 python quality/subset_fonts.py
 ```
 
-## Dropped pages
-
-The old site's private pages are intentionally not part of this rewrite:
-`/applications`, `/applications/[id]/resume`, and `/login`. They depended on worker
-bindings and a login flow, which an assets-only deployment cannot serve. Do not
-reimplement them here. The old `/rss` is also gone as a route; the blog's feed is
-static and lives at `/blog/feed.xml`.
-
 ## What the build emits
 
 | Output | Purpose |
