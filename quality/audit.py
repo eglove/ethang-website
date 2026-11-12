@@ -10,8 +10,13 @@ violations under the WCAG 2.0, 2.1, and 2.2 AA rule tags.
     python quality/audit.py --only axe       # run one tool
     python quality/audit.py --routes /,/blog # audit specific routes
     python quality/audit.py --jobs 4         # parallel browser runs
+    python quality/audit.py --no-retry       # fail on the first reading
 
 Exit code is 0 only when every audited route passes.
+
+A route whose only failures are marginal is measured a second time on its own
+before it is called a failure, because the parallel runs are what make the
+noise. See `MARGINAL`.
 """
 
 import argparse
@@ -28,6 +33,20 @@ DIST = ROOT / 'dist'
 REPORTS = ROOT / 'quality' / 'reports'
 
 CATEGORIES = ('performance', 'accessibility', 'best-practices', 'seo')
+
+# A score at or above this is too close to 1.0 for one measurement under load
+# to tell apart from a perfect one, so it is measured again rather than
+# reported. Lighthouse's timing audits move by a few percent between runs when
+# three headless browsers share the machine: on this site `total-blocking-time`
+# lands anywhere from 0ms to 131ms on the same unchanged page, which is enough
+# to take a route from 100 to 98.
+#
+# The retry is deliberately narrow. It applies only when EVERY failure on the
+# route is marginal, it runs once, and it runs with no other browser competing.
+# A real regression scores well below this line and fails on the first reading,
+# and a route that is still marginal on its own is reported as a failure. The
+# retry is printed, never silent, so a flake is visible as a flake.
+MARGINAL = 0.95
 AXE_TAGS = 'wcag2a,wcag2aa,wcag21a,wcag21aa,wcag22aa'
 CHROME_FLAGS = '--headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage'
 AXE_CHROME_OPTIONS = 'headless=new,no-sandbox,disable-gpu'
@@ -169,8 +188,27 @@ def run_axe(url, driver, timeout):
     return data, None
 
 
-def lighthouse_phase(base, routes, jobs):
+def worth_retrying(problems, err=None):
+    """Whether a route's first reading is close enough to perfect to re-measure.
+
+    Only a route that failed, and failed ONLY marginally, is worth a second
+    look. A route with no failures has nothing to re-measure, and a route with
+    any failure below `MARGINAL` has a real problem that a quieter machine will
+    not fix.
+    """
+    if err or not problems:
+        return False
+    return all(score >= MARGINAL for _, _, score, _ in problems)
+
+
+def lighthouse_phase(base, routes, jobs, retry=True):
+    """Score every route, re-measuring a marginal one with the machine to itself.
+
+    Returns the failures and the routes whose second reading was better, so a
+    flake can be reported rather than silently absorbed.
+    """
     failures = []
+    flaky = []
 
     def one(route):
         url = base + route
@@ -182,18 +220,35 @@ def lighthouse_phase(base, routes, jobs):
         return route, scores, problems, None
 
     with ThreadPoolExecutor(max_workers=jobs) as pool:
-        for route, scores, problems, err in pool.map(one, routes):
-            if err:
-                print('  %-58s ERROR' % route, flush=True)
-                failures.append('%s: %s' % (route, err))
+        results = list(pool.map(one, routes))
+
+    # The parallel pass is what makes a timing audit noisy, so a route that
+    # only just missed is measured once more on its own. The second run
+    # overwrites the saved report, so the report on disk is the one judged.
+    if retry:
+        for index, (route, scores, problems, err) in enumerate(results):
+            if not worth_retrying(problems, err):
                 continue
-            line = '  %-58s ' % route
-            line += ' '.join('%s=%s' % (k, fmt_score(v)) for k, v in scores.items())
-            print(line, flush=True)
-            for cat, audit, score, title in problems:
-                failures.append('%s [%s] %s scored %s (%s)'
-                                % (route, cat, audit, fmt_score(score), title))
-    return failures
+            again = one(route)
+            if again[3] or again[2]:
+                continue
+            results[index] = again
+            flaky.append('%s (was %s)' % (route, ', '.join(
+                '%s %s' % (audit, fmt_score(score))
+                for _, audit, score, _ in problems)))
+
+    for route, scores, problems, err in results:
+        if err:
+            print('  %-58s ERROR' % route, flush=True)
+            failures.append('%s: %s' % (route, err))
+            continue
+        line = '  %-58s ' % route
+        line += ' '.join('%s=%s' % (k, fmt_score(v)) for k, v in scores.items())
+        print(line, flush=True)
+        for cat, audit, score, title in problems:
+            failures.append('%s [%s] %s scored %s (%s)'
+                            % (route, cat, audit, fmt_score(score), title))
+    return failures, flaky
 
 
 def axe_phase(base, routes, driver, jobs, strict):
@@ -242,6 +297,8 @@ def main():
                     help='parallel Lighthouse runs (default: 3)')
     ap.add_argument('--strict-incomplete', action='store_true',
                     help='also fail when axe cannot determine a result')
+    ap.add_argument('--no-retry', action='store_true',
+                    help='fail on a marginal score instead of re-measuring it')
     args = ap.parse_args()
 
     if not args.skip_build:
@@ -270,11 +327,14 @@ def main():
 
         failures = []
         warnings = []
+        flaky = []
 
         if args.only in (None, 'lighthouse'):
             print('', flush=True)
             print('--- lighthouse ---', flush=True)
-            failures += lighthouse_phase(server.base, routes, args.jobs)
+            f, flaky = lighthouse_phase(server.base, routes, args.jobs,
+                                        retry=not args.no_retry)
+            failures += f
         if args.only in (None, 'axe'):
             print('', flush=True)
             print('--- axe-core (WCAG 2.0/2.1/2.2 AA) ---', flush=True)
@@ -287,6 +347,13 @@ def main():
 
     elapsed = time.time() - started
     print('')
+    if flaky:
+        print('%d route(s) only passed on a second, unloaded measurement:'
+              % len(flaky))
+        for f in flaky:
+            print('  ~ ' + f)
+        print('  (a marginal score is re-measured; --no-retry fails on it instead)')
+        print('')
     if warnings:
         print('axe could not determine a result for %d finding(s):' % len(warnings))
         for w in warnings:

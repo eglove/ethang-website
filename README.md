@@ -70,6 +70,21 @@ The run fails unless every route scores 100 in performance, accessibility,
 best-practices, and SEO, and reports no axe violation under the WCAG 2.0, 2.1,
 and 2.2 AA tags. Reports land in `quality/reports/` (ignored by git).
 
+A route whose only failures are marginal - 0.95 or above - is measured a second
+time on its own before it is called a failure, because three headless browsers
+sharing the machine move a timing audit by several percent: `total-blocking-time`
+lands anywhere from 0ms to 131ms on the same unchanged page, which is enough to
+take a route from 100 to 98. The retry is narrow on purpose - it needs *every*
+failure on the route to be marginal, it runs once, and it runs with nothing else
+competing. A real regression scores far below the line and fails on the first
+reading. Each retry is printed, so a flake is visible rather than silently
+absorbed, and `--no-retry` fails on the first reading instead.
+
+```sh
+python quality/test_audit.py            # the retry rule, without a browser
+python quality/audit.py --no-retry      # fail on the first reading
+```
+
 `quality/serve.py` serves `dist/` the way Cloudflare does - trailing-slash
 redirects, the generated 404, gzip, and long cache lifetimes on assets - because
 auditing a bare file server measures things the deployed site never pays for.
