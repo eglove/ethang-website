@@ -9,7 +9,7 @@
 //! The 404 is deliberately absent - it is not a destination.
 
 use crate::html::{el, escape};
-use crate::pages::SITE;
+use crate::pages::canonical_url;
 
 /// Render a sitemap for `paths`.
 ///
@@ -21,7 +21,9 @@ pub fn render(paths: &[(String, Option<i64>)]) -> String {
     let urls: Vec<String> = paths
         .iter()
         .map(|(path, lastmod)| {
-            let mut children = vec![text_el("loc", &format!("{SITE}{path}"))];
+            // The sitemap names the address the page is served at, which is
+            // the trailing-slash form the deployment redirects to.
+            let mut children = vec![text_el("loc", &canonical_url(path))];
             if let Some(millis) = lastmod {
                 children.push(text_el("lastmod", &format_date(*millis)));
             }
@@ -62,7 +64,7 @@ mod tests {
     fn lists_every_url_with_absolute_hosts() {
         let xml = render(&[("/".into(), None), ("/blog".into(), Some(1704153600000))]);
         assert!(xml.contains("<loc>https://ethang.dev/</loc>"));
-        assert!(xml.contains("<loc>https://ethang.dev/blog</loc>"));
+        assert!(xml.contains("<loc>https://ethang.dev/blog/</loc>"));
         assert!(xml.contains("<lastmod>2024-01-02</lastmod>"));
     }
 

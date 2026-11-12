@@ -65,6 +65,7 @@ pub struct ProcessedImage {
 #[derive(Debug, Default, Clone)]
 pub struct PublishedImages {
     by_source: BTreeMap<String, String>,
+    size_by_href: BTreeMap<String, (u32, u32)>,
 }
 
 impl PublishedImages {
@@ -76,6 +77,23 @@ impl PublishedImages {
     fn record(&mut self, source_name: &str, href: &str) {
         self.by_source
             .insert(source_name.to_string(), href.to_string());
+    }
+
+    /// Record the intrinsic size of a published file, keyed by its href.
+    fn record_size(&mut self, href: &str, width: u32, height: u32) {
+        if width > 0 && height > 0 {
+            self.size_by_href
+                .insert(href.to_string(), (width, height));
+        }
+    }
+
+    /// The intrinsic size of the file served at `href`, if the build knows it.
+    ///
+    /// A copied SVG or GIF is recorded with a size of zero, so this returns
+    /// `None` for those and the `<img>` is emitted without dimensions rather
+    /// than with a wrong pair.
+    pub fn size_for(&self, href: &str) -> Option<(u32, u32)> {
+        self.size_by_href.get(href).copied()
     }
 
     /// The href to serve for a post-relative `path`, if the build published it.
@@ -118,6 +136,7 @@ pub fn publish_post_images(source_dir: &Path, out_dir: &Path) -> Result<Publishe
     let mut published = PublishedImages::default();
     for image in process_post_images(source_dir, out_dir)? {
         published.record(&image.source_name, &image.href);
+        published.record_size(&image.href, image.width, image.height);
     }
     Ok(published)
 }
@@ -135,6 +154,19 @@ fn process_one(path: &Path, out_dir: &Path) -> Result<Vec<ProcessedImage>> {
         .unwrap_or_default()
         .to_ascii_lowercase();
 
+    // A GIF whose file holds one frame is a still image wearing a wasteful
+    // format: the corpus ships a 137 KB "animation" that is a single frame, and
+    // it was the largest element on its page. Those go through the raster path
+    // and come out as WebP. A GIF with real frames is copied untouched, because
+    // resizing it would drop the frames.
+    if extension == "gif" && !gif_is_animated(path) {
+        // A GIF the decoder cannot read is still served as-is rather than
+        // failing the build: a bad asset should not block a deploy.
+        if let Ok(variants) = resize_rasters(path, &source_name, out_dir) {
+            return Ok(variants);
+        }
+    }
+
     match extension.as_str() {
         // Vector and animated images are already as small as they get.
         "svg" | "gif" => {
@@ -143,17 +175,127 @@ fn process_one(path: &Path, out_dir: &Path) -> Result<Vec<ProcessedImage>> {
                 .with_context(|| format!("creating {}", out_dir.display()))?;
             fs::copy(path, &dest)
                 .with_context(|| format!("copying {} to {}", path.display(), dest.display()))?;
+            // An SVG states its own size in the root element, so it can carry
+            // dimensions an `<img>` uses to reserve space. A GIF's size is not
+            // read here and stays 0, which leaves the attributes off.
+            let (width, height) = match extension.as_str() {
+                "svg" => svg_size(path).unwrap_or((0, 0)),
+                "gif" => gif_size(path).unwrap_or((0, 0)),
+                _ => (0, 0),
+            };
             Ok(vec![ProcessedImage {
                 href: href_for(out_dir, &source_name)?,
                 source_name,
-                width: 0,
-                height: 0,
+                width,
+                height,
             }])
         }
         "png" | "jpg" | "jpeg" => resize_rasters(path, &source_name, out_dir),
         // A stray `.puml` or anything else is not an image we can serve.
         _ => Ok(Vec::new()),
     }
+}
+
+/// The intrinsic size an SVG declares, from `width`/`height` or `viewBox`.
+///
+/// Returns `None` when the root element states neither, so a caller can fall
+/// back to emitting the image without dimensions rather than guessing.
+fn svg_size(path: &Path) -> Option<(u32, u32)> {
+    let text = fs::read_to_string(path).ok()?;
+    let root_end = text.find('>')?;
+    let root = &text[..root_end];
+
+    let attr = |name: &str| -> Option<f64> {
+        let needle = format!("{name}=\"");
+        let start = root.find(&needle)? + needle.len();
+        let end = root[start..].find('"')? + start;
+        root[start..end].trim().parse::<f64>().ok()
+    };
+
+    if let (Some(width), Some(height)) = (attr("width"), attr("height")) {
+        return Some((width.round() as u32, height.round() as u32));
+    }
+
+    // `viewBox="min-x min-y width height"` is the fallback most diagrams use.
+    let start = root.find("viewBox=\"")? + "viewBox=\"".len();
+    let end = root[start..].find('"')? + start;
+    let parts: Vec<f64> = root[start..end]
+        .split_whitespace()
+        .filter_map(|part| part.parse::<f64>().ok())
+        .collect();
+    match parts.as_slice() {
+        [_, _, width, height] if *width > 0.0 && *height > 0.0 => {
+            Some((width.round() as u32, height.round() as u32))
+        }
+        _ => None,
+    }
+}
+
+/// The canvas size a GIF header declares.
+///
+/// The logical screen descriptor sits at bytes 6..10, little-endian, and is
+/// the size the image is drawn at - reading it costs a 10-byte read, where
+/// decoding the frames would cost the whole file.
+fn gif_size(path: &Path) -> Option<(u32, u32)> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.len() < 10 || &bytes[..3] != b"GIF" {
+        return None;
+    }
+    let width = u16::from_le_bytes([bytes[6], bytes[7]]) as u32;
+    let height = u16::from_le_bytes([bytes[8], bytes[9]]) as u32;
+    (width > 0 && height > 0).then_some((width, height))
+}
+
+/// Whether a GIF holds more than one frame.
+///
+/// Frames are counted by walking the image blocks: a graphic control extension
+/// followed by an image descriptor is one frame. Reading the whole file is
+/// acceptable here because the build already copies it byte for byte, and the
+/// answer decides whether that copy is the right thing to do.
+fn gif_is_animated(path: &Path) -> bool {
+    let Ok(bytes) = fs::read(path) else {
+        return false;
+    };
+    let mut frames = 0usize;
+    let mut i = 0usize;
+    while i + 3 < bytes.len() {
+        match bytes[i] {
+            // Image descriptor: one frame starts here.
+            0x2C => {
+                frames += 1;
+                if frames > 1 {
+                    return true;
+                }
+                // Skip the descriptor and the LZW minimum code size byte.
+                if i + 10 > bytes.len() {
+                    return false;
+                }
+                let packed = bytes[i + 9];
+                let mut at = i + 10;
+                if packed & 0x80 != 0 {
+                    let table_size = 3 * (1usize << ((packed & 0x07) + 1));
+                    at += table_size;
+                }
+                at += 1; // LZW minimum code size
+                // Walk the data sub-blocks to the block terminator.
+                while at < bytes.len() && bytes[at] != 0 {
+                    at += 1 + bytes[at] as usize;
+                }
+                i = at + 1;
+            }
+            // Extension block: skip its sub-blocks.
+            0x21 => {
+                let mut at = i + 2;
+                while at < bytes.len() && bytes[at] != 0 {
+                    at += 1 + bytes[at] as usize;
+                }
+                i = at + 1;
+            }
+            // Trailer, or anything unrecognised: stop.
+            _ => return false,
+        }
+    }
+    false
 }
 
 /// Emit the WebP variants for one raster image.

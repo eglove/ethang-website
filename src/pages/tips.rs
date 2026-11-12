@@ -15,7 +15,7 @@
 
 use crate::content::split_frontmatter;
 use crate::html::{el, escape};
-use crate::pages::{Doc, SITE};
+use crate::pages::{Doc, canonical_url};
 use anyhow::{Context, Result, anyhow, bail};
 use std::path::Path;
 
@@ -212,8 +212,9 @@ pub fn index_doc(tips: &[TipMeta]) -> Doc {
     Doc {
         title: TITLE.into(),
         description: Some("Small, self-contained fixes for sharp edges in CSS and HTML.".into()),
-        canonical: Some(format!("{SITE}/tips")),
+        canonical: Some(canonical_url("/tips")),
         article: None,
+        preload_image: None,
         body: render_index(tips),
     }
 }
@@ -223,8 +224,9 @@ pub fn tip_doc(tip: &Tip, body_html: &str) -> Doc {
     Doc {
         title: tip.title.clone(),
         description: tip.description.clone(),
-        canonical: Some(format!("{SITE}{}", tip_href(&tip.slug))),
+        canonical: Some(canonical_url(&tip_href(&tip.slug))),
         article: None,
+        preload_image: None,
         body: render_tip(tip, body_html),
     }
 }
@@ -300,7 +302,7 @@ mod tests {
         assert_eq!(doc.description.as_deref(), Some("Avoid layout shifts."));
         assert_eq!(
             doc.canonical.as_deref(),
-            Some("https://ethang.dev/tips/scrollbar-gutter")
+            Some("https://ethang.dev/tips/scrollbar-gutter/")
         );
         assert!(doc.article.is_none());
     }
@@ -309,7 +311,7 @@ mod tests {
     fn the_index_document_points_at_the_tips_page() {
         let doc = index_doc(&[]);
         assert_eq!(doc.title, "Tips");
-        assert_eq!(doc.canonical.as_deref(), Some("https://ethang.dev/tips"));
+        assert_eq!(doc.canonical.as_deref(), Some("https://ethang.dev/tips/"));
     }
 
     #[test]

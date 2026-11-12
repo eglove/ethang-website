@@ -54,6 +54,36 @@ Do not run `cf init` either: it scaffolds a TypeScript project (`cloudflare.conf
 `vite.config.ts`, `src/index.ts`) and expects a Node manifest, which would break the
 no-JavaScript rule above.
 
+## Quality gates
+
+The site is held to perfect Lighthouse scores and zero axe violations, checked
+over every generated route rather than a sample.
+
+```sh
+python quality/audit.py                 # build, serve, audit all 46 routes
+python quality/audit.py --skip-build    # audit the existing dist/
+python quality/audit.py --only axe      # one tool
+python quality/audit.py --routes /,/blog
+```
+
+The run fails unless every route scores 100 in performance, accessibility,
+best-practices, and SEO, and reports no axe violation under the WCAG 2.0, 2.1,
+and 2.2 AA tags. Reports land in `quality/reports/` (ignored by git).
+
+`quality/serve.py` serves `dist/` the way Cloudflare does - trailing-slash
+redirects, the generated 404, gzip, and long cache lifetimes on assets - because
+auditing a bare file server measures things the deployed site never pays for.
+It also points iframes at `about:blank`: a page with several third-party embeds
+never settles, and axe waits on the load event until it times out.
+
+Fonts are subsets. `assets/fonts/` holds the originals and
+`static/fonts/` what ships; rerun the subsetter after changing copy, and
+`tests/font_coverage.rs` fails if a character the site renders is not carried.
+
+```sh
+python quality/subset_fonts.py
+```
+
 ## Dropped pages
 
 The old site's private pages are intentionally not part of this rewrite: `/rss`,
@@ -83,4 +113,6 @@ toolchain brings its own linker and needs no Visual Studio install.
 | `static/` | Fonts, favicon, committed diagram SVGs |
 | `content/` | Markdown posts and pages |
 | `tests/` | Guard tests |
+| `quality/` | Lighthouse and axe harness, font subsetter |
+| `assets/fonts/` | Full font sources the subsets are cut from |
 | `wrangler.jsonc` | Deploy configuration |

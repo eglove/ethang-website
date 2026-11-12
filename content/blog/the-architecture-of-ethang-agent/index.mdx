@@ -17,6 +17,8 @@ import PostTable from "../../../components/ui/PostTable.astro";
   <img
     src="/images/blog/the-architecture-of-ethang-agent/layer-map.svg"
     alt="Diagram of the eThang Agent layer map: the desktop frontend at the top, the composition root below it, nine bounded contexts in the middle band, and ten anti-corruption layers at the bottom edge touching the outside world"
+    width="1200"
+    height="760"
     loading="lazy"
     className="w-full rounded-lg object-cover"
   />
@@ -115,6 +117,8 @@ The heart of the Agent Domain is one class, `Agent`, with one method that matter
 <figure className="my-4">
   <img
     src="/images/blog/the-architecture-of-ethang-agent/loop-cycle.svg"
+    width="1200"
+    height="640"
     alt="Diagram of the eThang Agent turn loop: drain inbox, manage context, send the request to the provider, then either finish without tool calls or execute the tool batch and loop again"
     loading="lazy"
     className="w-full rounded-lg object-cover"
@@ -241,6 +245,8 @@ The desktop app is not the only process. Every conversation runs in its own out-
 <figure className="my-4">
   <img
     src="/images/blog/the-architecture-of-ethang-agent/process-map.svg"
+    width="1200"
+    height="700"
     alt="Diagram of the eThang Agent process map: the desktop app process, one ChildHost process per conversation connected over a named pipe, a ComputerUse broker process behind another pipe, and the shared SQLite database both app and host open"
     loading="lazy"
     className="w-full rounded-lg object-cover"

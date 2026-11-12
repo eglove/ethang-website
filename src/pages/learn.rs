@@ -10,7 +10,7 @@
 //! build instead of rendering a badge with no glyph.
 
 use crate::html::{el, escape};
-use crate::pages::{Doc, SITE};
+use crate::pages::{Doc, canonical_url};
 use anyhow::{Context, Result, bail};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -208,8 +208,9 @@ pub fn learn_doc(stages: &[Stage]) -> Doc {
     Doc {
         title: "Learn".into(),
         description: Some(INTRO.into()),
-        canonical: Some(format!("{SITE}/learn")),
+        canonical: Some(canonical_url("/learn")),
         article: None,
+        preload_image: None,
         body: render(stages),
     }
 }
@@ -926,7 +927,7 @@ mod tests {
     fn the_doc_carries_the_page_metadata() {
         let doc = learn_doc(&[stage()]);
         assert_eq!(doc.title, "Learn");
-        assert_eq!(doc.canonical.as_deref(), Some("https://ethang.dev/learn"));
+        assert_eq!(doc.canonical.as_deref(), Some("https://ethang.dev/learn/"));
         assert_eq!(doc.description.as_deref(), Some(INTRO));
         assert!(doc.article.is_none());
     }

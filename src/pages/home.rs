@@ -240,6 +240,10 @@ fn profile_card() -> String {
 }
 
 fn link_row() -> String {
+    // The visible glyph is the icon; the accessible name comes from text inside
+    // the link rather than aria-label, because WCAG 2.5.3 requires a visible
+    // label's text to appear in the accessible name, and an aria-label that
+    // omits the visible "in" or "GH" fails it.
     let external = |href: &str, label: &str, glyph: String| {
         el(
             "a",
@@ -248,9 +252,8 @@ fn link_row() -> String {
                 ("href", href),
                 ("target", "_blank"),
                 ("rel", "noopener noreferrer"),
-                ("aria-label", label),
             ],
-            &[glyph],
+            &[glyph, label_text(label)],
         )
     };
     let badge = |text: &str| el("span", &[("aria-hidden", "true")], &[escape(text)]);
@@ -260,8 +263,13 @@ fn link_row() -> String {
             &[
                 ("src", src),
                 ("alt", alt),
-                ("width", "24"),
-                ("height", "24"),
+                // The PNGs are 48x48 and the stylesheet draws them at 32px, so
+                // the source is denser than the slot. Declaring the intrinsic
+                // size keeps the aspect ratio; drawing them wider than 48 would
+                // upscale the file, which Lighthouse's image-size-responsive
+                // audit flags.
+                ("width", "48"),
+                ("height", "48"),
                 ("loading", "lazy"),
             ],
         )
@@ -279,9 +287,8 @@ fn link_row() -> String {
             &[
                 ("class", "home-links__link"),
                 ("href", "mailto:hello@ethang.email"),
-                ("aria-label", "Email"),
             ],
-            &[raw(MAIL_ICON)],
+            &[raw(MAIL_ICON), label_text("Email")],
         ),
         external(
             "https://frontendmasters.com/u/ethang/",
@@ -310,6 +317,12 @@ fn link_row() -> String {
         .map(|item| el("li", &[], &[item]))
         .collect();
     el("ul", &[("class", "home-links")], &entries)
+}
+
+/// The accessible name for an icon link: present for assistive technology,
+/// invisible on screen, and never part of the visible label.
+fn label_text(label: &str) -> String {
+    el("span", &[("class", "visually-hidden")], &[escape(label)])
 }
 
 fn principles_card() -> String {

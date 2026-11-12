@@ -10,7 +10,7 @@
 
 use crate::content::{BLOG_PAGE_SIZE, Post, max_pages, page_href};
 use crate::html::{el, escape};
-use crate::pages::{ArticleMeta, Doc, SITE};
+use crate::pages::{ArticleMeta, Doc, canonical_url};
 
 /// The one-page slice of `posts` that page `page` shows.
 ///
@@ -225,13 +225,28 @@ pub fn post_doc(post: &Post, body_html: &str) -> Doc {
     Doc {
         title: post.title.clone(),
         description: Some(post_description(post)),
-        canonical: Some(format!("{SITE}/blog/{}", post.slug)),
+        canonical: Some(canonical_url(&format!("/blog/{}", post.slug))),
         article: Some(ArticleMeta {
             published_time: format_rfc3339(post.pub_date),
             modified_time: post.updated_date.map(format_rfc3339),
         }),
+        preload_image: first_image_src(body_html),
         body: render_post(post, body_html),
     }
+}
+
+/// The `src` of the first `<img>` in a rendered body, if there is one.
+///
+/// This is the element most likely to be the page's Largest Contentful Paint,
+/// and naming it in the head lets the browser start the request before the
+/// parser reaches the tag.
+fn first_image_src(html: &str) -> Option<String> {
+    let start = html.find("<img")?;
+    let tag = &html[start..start + html[start..].find('>')?];
+    let needle = "src=\"";
+    let value_start = tag.find(needle)? + needle.len();
+    let value_end = tag[value_start..].find('"')? + value_start;
+    Some(tag[value_start..value_end].to_string())
 }
 
 /// The description a post advertises: its frontmatter `description` when it
@@ -373,6 +388,10 @@ fn skip_link_target(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) {
     }
 }
 
+/// What the index and its pagination advertise. Every page needs a
+/// description: Lighthouse's SEO category fails a document without one.
+const INDEX_DESCRIPTION: &str = "Notes on software engineering, domain-driven design, and the systems behind them.";
+
 /// The complete document for index page `page`.
 pub fn index_doc(posts: &[Post], page: usize) -> Doc {
     let page = page.max(1);
@@ -382,10 +401,14 @@ pub fn index_doc(posts: &[Post], page: usize) -> Doc {
         } else {
             format!("Blog - Page {page}")
         },
-        // The old index page passed no description, so neither does this one.
-        description: None,
-        canonical: Some(format!("{SITE}{}", page_href(page))),
+        description: Some(if page == 1 {
+            INDEX_DESCRIPTION.to_string()
+        } else {
+            format!("{INDEX_DESCRIPTION} Page {page}.")
+        }),
+        canonical: Some(canonical_url(&page_href(page))),
         article: None,
+        preload_image: None,
         body: render_index(posts, page),
     }
 }
@@ -590,7 +613,7 @@ mod tests {
         assert_eq!(doc.title, "Alpha");
         assert_eq!(
             doc.canonical.as_deref(),
-            Some("https://ethang.dev/blog/alpha")
+            Some("https://ethang.dev/blog/alpha/")
         );
         let article = doc.article.expect("a post is an article");
         assert_eq!(article.published_time, "2024-01-02T00:00:00.000Z");
@@ -634,13 +657,13 @@ mod tests {
         let posts: Vec<Post> = (0..11).map(|i| post(&format!("p{i}"), "T", 0)).collect();
         let first = index_doc(&posts, 1);
         assert_eq!(first.title, "Blog");
-        assert_eq!(first.canonical.as_deref(), Some("https://ethang.dev/blog"));
+        assert_eq!(first.canonical.as_deref(), Some("https://ethang.dev/blog/"));
         assert!(first.article.is_none());
         let second = index_doc(&posts, 2);
         assert_eq!(second.title, "Blog - Page 2");
         assert_eq!(
             second.canonical.as_deref(),
-            Some("https://ethang.dev/blog/page/2")
+            Some("https://ethang.dev/blog/page/2/")
         );
     }
 }

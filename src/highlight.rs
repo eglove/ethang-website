@@ -23,7 +23,10 @@ use syntect::util::LinesWithEndings;
 const THEME_PLIST: &str = include_str!("../assets/night-owl.tmTheme");
 
 /// The prefix every highlighted block starts with, and its closing counterpart.
-const OPEN: &str = "<pre class=\"code\"><code>";
+///
+/// `tabindex="0"` makes a block that scrolls sideways reachable by keyboard,
+/// which WCAG 2.1 requires of any scrollable region.
+const OPEN: &str = "<pre class=\"code\" tabindex=\"0\"><code>";
 const CLOSE: &str = "</code></pre>";
 
 /// A syntax set plus a theme: everything needed to colour one block of code.
@@ -190,7 +193,7 @@ mod tests {
     #[test]
     fn wraps_code_in_a_pre() {
         let out = highlight("rust", "fn main() {}");
-        assert!(out.starts_with("<pre class=\"code\"><code>"));
+        assert!(out.starts_with("<pre class=\"code\" tabindex=\"0\"><code>"));
         assert!(out.ends_with("</code></pre>"));
     }
 

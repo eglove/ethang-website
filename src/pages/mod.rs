@@ -29,10 +29,36 @@ pub struct Doc {
     pub canonical: Option<String>,
     /// Present on a blog post; `og:type` becomes `article` when it is.
     pub article: Option<ArticleMeta>,
+    /// A body image to fetch before the parser reaches it.
+    ///
+    /// The first image in a post body is usually the largest element on the
+    /// page. It sits below the intro, so the preload scanner does not reach it
+    /// until the HTML above it has been parsed - and that delay is charged to
+    /// Largest Contentful Paint. Naming it here starts the request with the
+    /// stylesheet instead.
+    pub preload_image: Option<String>,
     pub body: String,
 }
 
 pub const SITE: &str = "https://ethang.dev";
+
+/// The canonical URL for a site path, in the form the deployment serves.
+///
+/// `wrangler.jsonc` sets `html_handling: "auto-trailing-slash"`, so every
+/// route is served at `/route/` and a slash-free request is answered with a
+/// 301. A canonical link, an `og:url`, or a sitemap entry that names the
+/// slash-free form therefore points at a redirect rather than the page - two
+/// hops for anything that follows it, and a mismatch between what the site
+/// says its address is and what the address actually is.
+///
+/// The root is already a directory, so it keeps its single slash.
+pub fn canonical_url(path: &str) -> String {
+    if path == "/" {
+        return format!("{SITE}/");
+    }
+    let trimmed = path.trim_end_matches('/');
+    format!("{SITE}{trimmed}/")
+}
 
 const NAV: [(&str, &str); 4] = [
     ("/", "Home"),
@@ -88,15 +114,26 @@ pub fn render_doc(doc: &Doc) -> String {
             "link",
             &[("rel", "stylesheet"), ("href", "/styles/site.css")],
         ),
-        void_el(
+    ];
+    if let Some(image) = &doc.preload_image {
+        head.push(void_el(
             "link",
             &[
-                ("rel", "icon"),
-                ("type", "image/svg+xml"),
-                ("href", "/favicon.svg"),
+                ("rel", "preload"),
+                ("as", "image"),
+                ("href", image.as_str()),
+                ("fetchpriority", "high"),
             ],
-        ),
-    ];
+        ));
+    }
+    head.push(void_el(
+        "link",
+        &[
+            ("rel", "icon"),
+            ("type", "image/svg+xml"),
+            ("href", "/favicon.svg"),
+        ],
+    ));
     if let Some(description) = &doc.description {
         head.push(void_el(
             "meta",
@@ -236,8 +273,9 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
     let home_doc = Doc {
         title: "Ethan Glover".into(),
         description: Some(HOME_DESCRIPTION.into()),
-        canonical: Some(format!("{SITE}/")),
+        canonical: Some(canonical_url("/")),
         article: None,
+        preload_image: None,
         body: home::render(&home_data),
     };
     write_page(&out.join("index.html"), &home_doc)?;
@@ -316,7 +354,10 @@ fn write_tips(
         // A tip has no images of its own, so its assets resolve the plain way:
         // rooted at the slug, nothing renamed.
         let resolve = |path: &str| crate::markdown::default_asset_url(&tip.slug, path);
-        let body = crate::markdown::render_markdown(&tip.body, &render_ctx(&tip.slug, &resolve));
+        let body = crate::markdown::render_markdown(
+            &tip.body,
+            &render_ctx(&tip.slug, &resolve, &|_| None),
+        );
         let doc = tips::tip_doc(tip, &body);
         write_page(&tips_dir.join(&tip.slug).join("index.html"), &doc)?;
         routes.push((tips::tip_href(&tip.slug), None));
@@ -371,6 +412,7 @@ pub fn not_found_doc() -> Doc {
         // A 404 has no canonical URL: it answers for every wrong address.
         canonical: None,
         article: None,
+        preload_image: None,
         body,
     }
 }
@@ -429,7 +471,11 @@ fn write_blog(
     for post in posts {
         let published = assets.get(&post.slug);
         let resolve = |path: &str| post_asset_url(&post.slug, published, path);
-        let body = crate::markdown::render_markdown(&post.body, &render_ctx(&post.slug, &resolve));
+        let size = |href: &str| published.and_then(|images| images.size_for(href));
+        let body = crate::markdown::render_markdown(
+            &post.body,
+            &render_ctx(&post.slug, &resolve, &size),
+        );
         let doc = blog::post_doc(post, &body);
         write_page(&blog_dir.join(&post.slug).join("index.html"), &doc)?;
         routes.push((
@@ -448,12 +494,14 @@ fn write_blog(
 fn render_ctx<'a>(
     slug: &'a str,
     asset_url: &'a dyn Fn(&str) -> String,
+    asset_size: &'a dyn Fn(&str) -> Option<(u32, u32)>,
 ) -> crate::markdown::RenderCtx<'a> {
     crate::markdown::RenderCtx {
         post_slug: slug,
         highlight: &crate::highlight::highlight,
         render_math: &crate::math::render_math,
         asset_url,
+        asset_size,
     }
 }
 
@@ -478,6 +526,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -493,6 +542,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         assert!(render_doc(&doc).contains("<title>a &amp; b</title>"));
@@ -505,6 +555,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         assert!(!render_doc(&doc).contains("name=\"description\""));
@@ -517,6 +568,7 @@ mod tests {
             description: Some("a & b".into()),
             canonical: Some("https://ethang.dev/x".into()),
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -531,6 +583,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -561,6 +614,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: "<p>hi</p>".into(),
         };
         assert!(render_doc(&doc).contains("<main><p>hi</p></main>"));
@@ -605,6 +659,7 @@ mod tests {
             description: None,
             canonical: None,
             article: None,
+        preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -622,6 +677,7 @@ mod tests {
                 published_time: "2024-01-02T00:00:00.000Z".into(),
                 modified_time: Some("2024-03-05T13:07:00.000Z".into()),
             }),
+            preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -644,6 +700,7 @@ mod tests {
                 published_time: "2024-01-02T00:00:00.000Z".into(),
                 modified_time: None,
             }),
+            preload_image: None,
             body: String::new(),
         };
         let html = render_doc(&doc);
@@ -655,7 +712,7 @@ mod tests {
     fn sitemap_lists_every_url_with_absolute_hosts() {
         let xml = sitemap::render(&[("/".into(), None), ("/blog".into(), Some(1704153600000))]);
         assert!(xml.contains("<loc>https://ethang.dev/</loc>"));
-        assert!(xml.contains("<loc>https://ethang.dev/blog</loc>"));
+        assert!(xml.contains("<loc>https://ethang.dev/blog/</loc>"));
         assert!(xml.contains("<lastmod>2024-01-02</lastmod>"));
     }
 
@@ -702,7 +759,7 @@ mod tests {
         // A tip body is markdown, so its fence is highlighted like a post's:
         // the property is split across spans, so look for its pieces.
         let gutter = read("tips/scrollbar-gutter/index.html");
-        assert!(gutter.contains("<pre class=\"code\"><code>"));
+        assert!(gutter.contains("<pre class=\"code\" tabindex=\"0\"><code>"));
         assert!(gutter.contains("scrollbar-gutter</span>"));
         assert!(gutter.contains("both</span>"));
         // Raw HTML in a tip body passes through as markup, not as text. The
@@ -779,12 +836,12 @@ mod tests {
         let xml = read("sitemap.xml");
         for loc in [
             "<loc>https://ethang.dev/</loc>",
-            "<loc>https://ethang.dev/blog</loc>",
-            "<loc>https://ethang.dev/blog/page/2</loc>",
-            "<loc>https://ethang.dev/blog/sessions-are-agents</loc>",
-            "<loc>https://ethang.dev/learn</loc>",
-            "<loc>https://ethang.dev/tips</loc>",
-            "<loc>https://ethang.dev/tips/scrollbar-gutter</loc>",
+            "<loc>https://ethang.dev/blog/</loc>",
+            "<loc>https://ethang.dev/blog/page/2/</loc>",
+            "<loc>https://ethang.dev/blog/sessions-are-agents/</loc>",
+            "<loc>https://ethang.dev/learn/</loc>",
+            "<loc>https://ethang.dev/tips/</loc>",
+            "<loc>https://ethang.dev/tips/scrollbar-gutter/</loc>",
         ] {
             assert!(xml.contains(loc), "sitemap is missing {loc}");
         }

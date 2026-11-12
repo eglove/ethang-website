@@ -303,7 +303,8 @@
 
   /* syntax-highlighting palette — also usable as semantic tokens */
   --night-owl-purple: #c792ea; /* keywords, emphasis                       */
-  --night-owl-comment: #637777; /* comments                               */
+  --night-owl-comment: #6f8585; /* comments, lightened from Night Owl's
+                                   #637777 to clear 4.5:1 on the panel */
   --night-owl-green: #c5e478; /* variables, constants, built-ins          */
   --night-owl-blue: #82aaff; /* types, functions, meta                    */
   --night-owl-cyan: #7fdbca; /* attributes, tags, params                  */
@@ -530,6 +531,13 @@ hr {
 
 .site-nav a {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  /* WCAG 2.2 target size: a text link is 17px tall on its own, so it takes
+   * padding to reach the 24px minimum, and the block padding is what puts
+   * clear space between one link and the next. */
+  min-block-size: 1.5rem;
+  padding-block: 0.25rem;
   color: var(--night-owl-fg);
   font-weight: 500;
   text-decoration: none;
@@ -729,7 +737,14 @@ hr {
   border: 1px solid var(--night-owl-border);
   border-radius: var(--radius-md);
   padding: var(--space-md);
+  /* A code block that scrolls sideways is not reachable by keyboard on its
+   * own, so it takes focus and shows the standard focus ring. */
   overflow-inline: auto;
+}
+
+.blog-prose pre:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 
 /* Highlighted blocks carry their own inline colours per span; the outer
@@ -900,6 +915,12 @@ hr {
   line-height: var(--text-xs-line);
   font-style: normal;
 }
+/* A figure on a light panel takes a caption dark enough to read on it: the
+ * muted token is tuned for the dark page and only clears 2.3:1 on white. */
+.blog-prose .on-light figcaption {
+  color: #4a5560;
+}
+
 .blog-prose figcaption {
   color: var(--night-owl-muted);
   font-size: var(--text-sm);
@@ -1113,12 +1134,27 @@ hr {
   }
 }
 
+/* The icon is an inline SVG at 20-24px; sizing it here keeps the rendered box
+ * equal to the source it came from. A bitmap icon is drawn at 2x because the
+ * PNGs ship at 32 and 48px for a 24px slot, and an image upscaled past its
+ * source resolution is what Lighthouse's image-size-responsive audit flags. */
+.home-links__link img {
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+.home-links__link svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
 .home-links__link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: 2.25rem;
-  min-block-size: 2.25rem;
+  /* 2.75rem keeps every icon link at the 44px WCAG 2.2 target size. */
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
   border-radius: var(--radius-md);
   color: var(--night-owl-fg);
   font-size: var(--text-sm);

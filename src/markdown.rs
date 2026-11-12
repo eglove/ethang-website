@@ -34,6 +34,13 @@ pub struct RenderCtx<'a> {
     /// rooted at the slug and nothing is renamed - which is what a test that
     /// never published anything needs.
     pub asset_url: &'a dyn Fn(&str) -> String,
+    /// The intrinsic size of the file `asset_url` resolves a path to.
+    ///
+    /// An `<img>` without `width` and `height` reserves no space, so the text
+    /// below it jumps once the image loads. The build knows each variant's
+    /// size; markdown does not, so the lookup is injected alongside
+    /// `asset_url`. `None` leaves the attributes off.
+    pub asset_size: &'a dyn Fn(&str) -> Option<(u32, u32)>,
 }
 
 /// Placeholder openers that cannot occur in prose. The private-use area is
@@ -70,7 +77,7 @@ fn smart_typography(text: &str) -> String {
 
 /// Render a post body to HTML.
 pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
-    let expanded = expand_components(body, ctx.asset_url)
+    let expanded = expand_components(body, ctx.asset_url, ctx.asset_size)
         .replace(ASSET_ROOT, &format!("/images/blog/{}/", ctx.post_slug));
     let (source, mut math) = extract_display_math(&expanded);
 
@@ -143,7 +150,88 @@ pub fn render_markdown(body: &str, ctx: &RenderCtx<'_>) -> String {
 
     let mut rendered = String::with_capacity(source.len());
     html::push_html(&mut rendered, events.into_iter());
-    restore_math(&rendered, &math, ctx)
+    let restored = restore_math(&rendered, &math, ctx);
+    finalize_images(&restored, ctx.asset_size)
+}
+
+/// Give every `<img>` in a rendered body the attributes it needs.
+///
+/// Two things happen here, both of which the post authors should not have to
+/// remember:
+///
+/// - **Dimensions.** A post may write an image three ways - `<PostImage>`,
+///   markdown `![]()`, or a raw `<img>` in MDX - and only the first goes
+///   through a component that can attach the size. An image with no
+///   dimensions reserves no space, so the text below it jumps when the file
+///   arrives; that shift is what Lighthouse's CLS metric charges for.
+/// - **Priority.** The first image in a body is usually the largest thing on
+///   the page, which makes it the LCP element. Leaving it lazy-loaded is the
+///   classic own-goal: the browser defers the one image that decides the
+///   metric. The first image loads eagerly at high priority; the rest stay
+///   lazy.
+fn finalize_images(html: &str, asset_size: &dyn Fn(&str) -> Option<(u32, u32)>) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    let mut seen = 0usize;
+
+    while let Some(start) = rest.find("<img") {
+        out.push_str(&rest[..start]);
+        let Some(len) = rest[start..].find('>').map(|at| at + start + 1) else {
+            out.push_str(&rest[start..]);
+            return out;
+        };
+        let tag = &rest[start..len];
+        let sized = sized_img_tag(tag, asset_size);
+        out.push_str(&if seen == 0 {
+            prioritize_img_tag(&sized)
+        } else {
+            sized
+        });
+        seen += 1;
+        rest = &rest[len..];
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Make one `<img>` load eagerly at high priority.
+fn prioritize_img_tag(tag: &str) -> String {
+    let tag = tag.replacen(" loading=\"lazy\"", "", 1);
+    match tag.rfind('>') {
+        Some(close) => {
+            let (head, tail) = tag.split_at(close);
+            let head = head.trim_end_matches('/').trim_end();
+            format!("{head} loading=\"eager\" fetchpriority=\"high\"{tail}")
+        }
+        None => tag,
+    }
+}
+
+/// Return `tag` with `width` and `height` filled in when it has neither.
+fn sized_img_tag(tag: &str, asset_size: &dyn Fn(&str) -> Option<(u32, u32)>) -> String {
+    if tag.contains("width=") || tag.contains("height=") {
+        return tag.to_string();
+    }
+    let Some(src) = attr_value(tag, "src") else {
+        return tag.to_string();
+    };
+    let Some((width, height)) = asset_size(&src) else {
+        return tag.to_string();
+    };
+    let Some(close) = tag.rfind('>') else {
+        return tag.to_string();
+    };
+    let (head, tail) = tag.split_at(close);
+    let head = head.trim_end_matches('/').trim_end();
+    format!("{head} width=\"{width}\" height=\"{height}\"{tail}")
+}
+
+/// The value of `name` in a single tag, with entities left as written.
+fn attr_value(tag: &str, name: &str) -> Option<String> {
+    let needle = format!(" {name}=\"");
+    let start = tag.find(&needle)? + needle.len();
+    let end = tag[start..].find('"')? + start;
+    Some(tag[start..end].to_string())
 }
 
 /// The math spans found in one body, in placeholder order.
@@ -325,7 +413,11 @@ const COMPONENTS: [&str; 5] = [
 ///
 /// Post-relative asset paths come out of here still relative; `render_markdown`
 /// roots them at the post's own directory once it knows the slug.
-pub fn expand_components(body: &str, asset_url: &dyn Fn(&str) -> String) -> String {
+pub fn expand_components(
+    body: &str,
+    asset_url: &dyn Fn(&str) -> String,
+    asset_size: &dyn Fn(&str) -> Option<(u32, u32)>,
+) -> String {
     let (imports, source) = strip_imports(body);
     let mut out = String::with_capacity(source.len());
     let mut in_fence = false;
@@ -345,7 +437,8 @@ pub fn expand_components(body: &str, asset_url: &dyn Fn(&str) -> String) -> Stri
         }
 
         if !in_fence
-            && let Some((consumed, replacement)) = expand_at(&source[offset..], &imports, asset_url)
+            && let Some((consumed, replacement)) =
+                expand_at(&source[offset..], &imports, asset_url, asset_size)
         {
             out.push_str(&replacement);
             offset += consumed;
@@ -404,6 +497,7 @@ fn expand_at(
     source: &str,
     imports: &BTreeMap<String, String>,
     asset_url: &dyn Fn(&str) -> String,
+    asset_size: &dyn Fn(&str) -> Option<(u32, u32)>,
 ) -> Option<(usize, String)> {
     let trimmed = source.trim_start();
     // Consumed counts from `source`, so the whitespace before the tag has to
@@ -430,7 +524,7 @@ fn expand_at(
         "Blockquote" => render_blockquote(&attrs, inner),
         "VideoEmbed" => render_video_embed(&attrs)?,
         "PostTable" => render_post_table(&attrs)?,
-        "PostImage" => render_post_image(&attrs, imports, asset_url),
+        "PostImage" => render_post_image(&attrs, imports, asset_url, asset_size),
         "Heading" => render_heading(&attrs, inner),
         _ => return None,
     };
@@ -715,22 +809,31 @@ fn render_post_image(
     attrs: &[(String, AttrValue)],
     imports: &BTreeMap<String, String>,
     asset_url: &dyn Fn(&str) -> String,
+    asset_size: &dyn Fn(&str) -> Option<(u32, u32)>,
 ) -> String {
     let raw_src = expr_attr(attrs, "src")
         .and_then(|expr| imports.get(expr).cloned())
         .or_else(|| text_attr(attrs, "src"));
     let src = raw_src.map(|path| asset_url(&path)).unwrap_or_default();
     let alt = text_attr(attrs, "alt").unwrap_or_default();
+    // Without these two the browser cannot reserve space for the image, and
+    // everything below it shifts when the file arrives.
+    let size = asset_size(&src);
+    let width = size.map(|(w, _)| w.to_string()).unwrap_or_default();
+    let height = size.map(|(_, h)| h.to_string()).unwrap_or_default();
 
-    let mut children = vec![void_el(
-        "img",
-        &[
-            ("src", src.as_str()),
-            ("alt", alt.as_str()),
-            ("loading", "lazy"),
-            ("decoding", "async"),
-        ],
-    )];
+    let mut img_attrs = vec![
+        ("src", src.as_str()),
+        ("alt", alt.as_str()),
+        ("loading", "lazy"),
+        ("decoding", "async"),
+    ];
+    if size.is_some() {
+        img_attrs.push(("width", width.as_str()));
+        img_attrs.push(("height", height.as_str()));
+    }
+
+    let mut children = vec![void_el("img", &img_attrs)];
     if let Some(caption) = text_attr(attrs, "caption") {
         children.push(el("figcaption", &[], &[escape(&caption)]));
     }
@@ -1050,11 +1153,12 @@ mod tests {
             highlight: h,
             render_math: m,
             asset_url: &|path| default_asset_url("demo", path),
+            asset_size: &|_| None,
         }
     }
 
     fn no_highlight(_lang: &str, code: &str) -> String {
-        format!("<pre><code>{code}</code></pre>")
+        format!("<pre tabindex=\"0\"><code>{code}</code></pre>")
     }
 
     fn no_math(tex: &str, display: bool) -> String {
@@ -1190,7 +1294,7 @@ mod tests {
     fn routes_fenced_code_through_the_highlighter() {
         let out = render_markdown("```rust\nfn main() {}\n```", &ctx(&no_highlight, &no_math));
         assert!(
-            out.contains("<pre><code>fn main() {}</code></pre>"),
+            out.contains("<pre tabindex=\"0\"><code>fn main() {}</code></pre>"),
             "highlight hook: {out}"
         );
     }
