@@ -130,6 +130,50 @@ pub const MARKER_PATHS: [(&str, &[&str]); 6] = [
     ("corpus", &["m16 6 4 14", "M12 6v14", "M8 8v12", "M4 4v16"]),
 ];
 
+/// The Learn page as markdown, for its `.md` twin.
+///
+/// Every stage, its lede, its sources grouped as the page groups them, and the
+/// two closing lines. The marker a source arrives in becomes a parenthetical
+/// rather than a badge, because a markdown reader cannot see a glyph.
+pub fn render_markdown(stages: &[Stage]) -> String {
+    let mut out = format!("# Learn\n\n{INTRO}\n\n");
+    for stage in stages {
+        out.push_str(&format!(
+            "## {} {}\n\n{}\n\n",
+            format_stage_number(stage.number),
+            stage.title,
+            stage.lede
+        ));
+        for group in &stage.groups {
+            if let Some(heading) = &group.heading {
+                out.push_str(&format!("### {heading}\n\n"));
+            }
+            if let Some(blurb) = &group.blurb {
+                out.push_str(&format!("{blurb}\n\n"));
+            }
+            for entry in &group.entries {
+                let by = entry
+                    .by
+                    .as_ref()
+                    .map(|by| format!(", by {by}"))
+                    .unwrap_or_default();
+                let label = format!("{}{by}", entry.marker);
+                match &entry.url {
+                    Some(url) => out.push_str(&format!(
+                        "- [{}]({url}) ({label}): {}\n",
+                        entry.title, entry.note
+                    )),
+                    None => out.push_str(&format!("- {} ({label}): {}\n", entry.title, entry.note)),
+                }
+            }
+            out.push('\n');
+        }
+        out.push_str(&format!("**Done when:** {}\n\n", stage.done_when));
+        out.push_str(&format!("**Pair with:** {}\n\n", stage.pair_with));
+    }
+    out
+}
+
 /// The zero-padded stage number: `01` through `10`.
 pub fn format_stage_number(number: u8) -> String {
     format!("{number:02}")

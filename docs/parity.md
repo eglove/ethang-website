@@ -25,18 +25,23 @@ removed it from scope. `added` means this build has it and the old one did not.
 | `/tips/scrollbar-gutter` | `/tips/scrollbar-gutter` | ported |
 | `/courses` | `/courses` | ported as a 301 to `/learn` |
 | (no custom 404) | `/404.html` | added |
-| `/rss` | - | dropped |
+| `/rss` | `/blog/feed.xml` | reimplemented as a static RSS 2.0 feed |
 | `/applications` | - | dropped |
 | `/applications/<id>/resume` | - | dropped |
 | `/login` | - | dropped |
 
 ### The dropped routes
 
-All four were server-rendered or private and the user deferred them: `/rss`
-needed a feed generator, `/applications` and `/applications/<id>/resume` were
-the job-application tracker behind auth, and `/login` only existed to reach it.
-Nothing links to them, `tests/parity.rs` asserts the directories are absent,
-and the sitemap never listed them.
+All four were server-rendered or private. `/applications` and
+`/applications/<id>/resume` were the job-application tracker behind auth, and
+`/login` only existed to reach it. Nothing links to them, `tests/parity.rs`
+asserts the directories are absent, and the sitemap never listed them.
+
+`/rss` is the exception: it was dropped for want of a feed generator, and the
+feed now exists. It is published at `/blog/feed.xml` rather than `/rss` because
+that is where the blog's own pages advertise it, and a feed is a property of the
+blog rather than a route of its own. `tests/parity.rs` still asserts that `/rss`
+itself is absent.
 
 ### The unpublished drafts
 
@@ -88,7 +93,27 @@ byte-identical to what the old site served. The trade is that editing a diagram
 means re-rendering it by hand rather than changing the fence.
 
 One further difference is deliberate and visible: the old nav carried `RSS` and
-`Login`. Both routes are dropped, so both links are gone.
+`Login`. `Login` is gone with its route, and `RSS` is not in the nav - the feed
+is advertised in `<head>` as `rel="alternate" type="application/rss+xml"`, which
+is what a reader actually looks for.
+
+## Additions since parity
+
+Three things exist that the old site had no equivalent of, none of which
+changes a page a reader sees:
+
+- **`/llms.txt` and `/llms-full.txt`**, following <https://llmstxt.org/>: the
+  site's pages as an index of markdown files, and the same file with every body
+  inlined.
+- **A markdown twin for every destination** - `/index.md`,
+  `/blog/<slug>/index.md`, `/tips/<slug>/index.md`, `/learn/index.md`, and the
+  two indexes - advertised from each page as `rel="alternate"
+  type="text/markdown"` and covered by `rel="describedby"` pointing at
+  `llms.txt`.
+- **Inlined, pruned, minified CSS.** `static/styles/site.css` is a build input
+  and is never published. Each page carries a `<style>` element holding only the
+  rules whose selectors can match that page. `tests/css_pruning.rs` proves the
+  pruned sheet matches exactly what the full sheet matches, element for element.
 
 ## How to re-run the check
 

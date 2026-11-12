@@ -46,6 +46,27 @@ impl Tip {
     }
 }
 
+/// Where a tip's markdown twin lives.
+pub fn twin_path(slug: &str) -> String {
+    format!("/tips/{slug}/index.md")
+}
+
+/// The tips index as markdown, for its `.md` twin.
+pub fn render_markdown(tips: &[TipMeta]) -> String {
+    let mut out = format!("# {TITLE}\n\n{}", crate::pages::blog::INDEX_DESCRIPTION);
+    out.push('\n');
+    for tip in tips {
+        out.push_str(&format!(
+            "\n- [{}]({}{})",
+            tip.title,
+            crate::pages::SITE,
+            twin_path(&tip.slug)
+        ));
+    }
+    out.push('\n');
+    out
+}
+
 /// The index's kicker, verbatim from the old page.
 pub const KICKER: &str = "small solutions / sharp edges";
 

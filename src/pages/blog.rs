@@ -390,7 +390,28 @@ fn skip_link_target(chars: &mut std::iter::Peekable<std::str::Chars<'_>>) {
 
 /// What the index and its pagination advertise. Every page needs a
 /// description: Lighthouse's SEO category fails a document without one.
-const INDEX_DESCRIPTION: &str = "Notes on software engineering, domain-driven design, and the systems behind them.";
+pub const INDEX_DESCRIPTION: &str = "Notes on software engineering, domain-driven design, and the systems behind them.";
+
+/// The blog index as markdown, for its `.md` twin.
+///
+/// The whole blog rather than one page of it: a markdown file is fetched whole,
+/// and pagination is a property of the HTML index that a reader following
+/// `llms.txt` should not have to walk.
+pub fn render_index_markdown(posts: &[Post]) -> String {
+    let mut out = format!("# Blog\n\n{INDEX_DESCRIPTION}\n\n");
+    for post in posts {
+        let stamp = post.updated_date.unwrap_or(post.pub_date);
+        out.push_str(&format!(
+            "- [{}]({}/blog/{}/index.md) ({}): {}\n",
+            post.title,
+            crate::pages::SITE,
+            post.slug,
+            format_date(stamp),
+            post_description(post)
+        ));
+    }
+    out
+}
 
 /// The complete document for index page `page`.
 pub fn index_doc(posts: &[Post], page: usize) -> Doc {
@@ -423,7 +444,7 @@ const MONTHS: [&str; 12] = [
 /// [`parse_date`](crate::content::parse_date) produces, so the two directions
 /// stay exact over the whole range a timestamp can occupy.
 /// Returns `(year, month, day, hour, minute, second)`.
-fn civil_from_millis(millis: i64) -> (i64, i64, i64, i64, i64, i64) {
+pub fn civil_from_millis(millis: i64) -> (i64, i64, i64, i64, i64, i64) {
     let seconds = millis.div_euclid(1000);
     let days = seconds.div_euclid(86_400);
     let second_of_day = seconds.rem_euclid(86_400);

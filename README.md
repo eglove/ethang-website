@@ -86,10 +86,30 @@ python quality/subset_fonts.py
 
 ## Dropped pages
 
-The old site's private pages are intentionally not part of this rewrite: `/rss`,
+The old site's private pages are intentionally not part of this rewrite:
 `/applications`, `/applications/[id]/resume`, and `/login`. They depended on worker
 bindings and a login flow, which an assets-only deployment cannot serve. Do not
-reimplement them here.
+reimplement them here. The old `/rss` is also gone as a route; the blog's feed is
+static and lives at `/blog/feed.xml`.
+
+## What the build emits
+
+| Output | Purpose |
+| --- | --- |
+| `<route>/index.html` | One minified page per route, with its CSS inlined |
+| `<route>/index.md` | The same page as markdown, for agents and for `llms.txt` |
+| `llms.txt` | The [llms.txt](https://llmstxt.org/) index of those markdown files |
+| `llms-full.txt` | The same document with every page body inlined |
+| `blog/feed.xml` | The blog as RSS 2.0, newest first |
+| `sitemap.xml`, `robots.txt`, `_redirects` | As before |
+
+`static/styles/site.css` is a build input and is **not** published. Each page
+carries a `<style>` element holding only the rules whose selectors can match that
+page; `tests/css_pruning.rs` proves the pruned sheet matches exactly what the full
+sheet matches, element for element, on every built page.
+
+`tests/css_pruning.rs` and `tests/parity.rs` both read the committed `dist/`, so
+run `cargo run --release -- build` before `cargo test` when either fails.
 
 ## Toolchain note
 
@@ -109,6 +129,9 @@ toolchain brings its own linker and needs no Visual Studio install.
 | `src/highlight.rs` | Build-time syntax highlighting |
 | `src/math.rs` | LaTeX to MathML |
 | `src/images.rs` | Build-time image resizing and srcsets |
+| `src/css.rs` | CSS minification and per-page rule pruning |
+| `src/llms.rs` | `llms.txt` and `llms-full.txt` |
+| `src/rss.rs` | The blog's RSS 2.0 feed |
 | `src/pages/` | One module per page |
 | `static/` | Fonts, favicon, committed diagram SVGs |
 | `content/` | Markdown posts and pages |

@@ -386,13 +386,26 @@ fn sorted_files(dir: &Path) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
+/// Files under `static/` that are build inputs rather than published assets.
+///
+/// `styles/site.css` is the authored stylesheet: it is inlined into every page
+/// and never served as a file, so publishing it would ship a second copy of the
+/// CSS that nothing links to and that would drift from the inlined one.
+const UNPUBLISHED: [&str; 1] = ["styles/site.css"];
+
 /// Copy everything under `src` to the same relative path under `out`.
 ///
-/// This is what publishes `static/styles/site.css`, `static/diagrams/*.svg`,
-/// and the fonts: the site refers to them at their path below `static/`, so
-/// the relative layout has to survive the copy. A `src` that does not exist
-/// copies nothing.
+/// This is what publishes `static/diagrams/*.svg` and the fonts: the site
+/// refers to them at their path below `static/`, so the relative layout has to
+/// survive the copy. A `src` that does not exist copies nothing, and a file in
+/// [`UNPUBLISHED`] is skipped.
 pub fn copy_static(src: &Path, out: &Path) -> Result<()> {
+    copy_static_from(src, src, out)
+}
+
+/// `root` is the tree the relative paths are measured from, so the skip list
+/// keeps matching however deep the walk goes.
+fn copy_static_from(root: &Path, src: &Path, out: &Path) -> Result<()> {
     if !src.is_dir() {
         return Ok(());
     }
@@ -411,8 +424,16 @@ pub fn copy_static(src: &Path, out: &Path) -> Result<()> {
             .ok_or_else(|| anyhow!("no file name in {}", path.display()))?;
         let dest = out.join(name);
         if path.is_dir() {
-            copy_static(&path, &dest)?;
+            copy_static_from(root, &path, &dest)?;
         } else {
+            let relative = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            if UNPUBLISHED.contains(&relative.as_str()) {
+                continue;
+            }
             fs::copy(&path, &dest)
                 .with_context(|| format!("copying {} to {}", path.display(), dest.display()))?;
         }
@@ -586,6 +607,8 @@ mod tests {
 
     #[test]
     fn copy_static_preserves_the_relative_tree() {
+        // The stylesheet is a build input and is deliberately not published;
+        // every other file under `static/` keeps its path.
         let dir = std::env::temp_dir().join("ethang-static-tree");
         let src = dir.join("static");
         let out = dir.join("dist");
@@ -598,9 +621,9 @@ mod tests {
 
         copy_static(&src, &out).unwrap();
 
-        assert_eq!(
-            "body{}",
-            std::fs::read_to_string(out.join("styles").join("site.css")).unwrap()
+        assert!(
+            !out.join("styles").join("site.css").exists(),
+            "the authored stylesheet must not be published"
         );
         assert_eq!(
             "<svg/>",

@@ -452,6 +452,220 @@ pub fn expand_components(
     translate_jsx_attributes(&out)
 }
 
+/// Render a body as markdown, for the page's `.md` twin.
+///
+/// This is the same body the HTML renderer sees, with the components turned
+/// into the markdown they stand for instead of the HTML they render as:
+///
+/// - `<Blockquote>` becomes a `>` block with its attribution line.
+/// - `<PostImage>` becomes `![alt](published-url)`, pointing at the same
+///   resized file the page serves.
+/// - `<PostTable>` becomes a pipe table.
+/// - `<VideoEmbed>` becomes a link to the video, because markdown has no way to
+///   embed one and a bare iframe in a `.md` file is noise to a reader.
+/// - `<Heading as="h2">` becomes `##`, so the levels survive.
+///
+/// `import` lines are dropped: they bind assets that this output resolves
+/// directly, and a reader has no use for a path that only existed in the old
+/// MDX toolchain. Raw HTML in the body is kept and its JSX-only attribute
+/// syntax translated, because a post's terminal panels are markup no markdown
+/// construct can express.
+pub fn render_markdown_source(body: &str, asset_url: &dyn Fn(&str) -> String) -> String {
+    let (imports, source) = strip_imports(body);
+    let mut out = String::with_capacity(source.len());
+    let mut in_fence = false;
+    let mut offset = 0;
+
+    while offset < source.len() {
+        let line_end = source[offset..]
+            .find('\n')
+            .map_or(source.len(), |at| offset + at + 1);
+        let line = &source[offset..line_end];
+
+        if line.trim_start().starts_with("```") {
+            in_fence = !in_fence;
+            out.push_str(line);
+            offset = line_end;
+            continue;
+        }
+
+        if !in_fence
+            && let Some((consumed, replacement)) =
+                expand_at_markdown(&source[offset..], &imports, asset_url)
+        {
+            out.push_str(&replacement);
+            offset += consumed;
+            continue;
+        }
+
+        out.push_str(line);
+        offset = line_end;
+    }
+
+    collapse_blank_lines(&translate_jsx_attributes(&out))
+}
+
+/// Expand the component starting at `source` into markdown.
+fn expand_at_markdown(
+    source: &str,
+    imports: &BTreeMap<String, String>,
+    asset_url: &dyn Fn(&str) -> String,
+) -> Option<(usize, String)> {
+    let trimmed = source.trim_start();
+    let leading = source.len() - trimmed.len();
+    if !trimmed.starts_with('<') {
+        return None;
+    }
+    let name = COMPONENTS.iter().find(|name| {
+        trimmed[1..].starts_with(**name)
+            && !trimmed[1 + name.len()..].starts_with(|ch: char| ch.is_alphanumeric())
+    })?;
+    let (open_end, element_end) = scan_element(trimmed, name)?;
+    let open_tag = &trimmed[1 + name.len()..open_end];
+    let inner = if element_end > open_end {
+        &trimmed[open_end..element_end - (name.len() + 3)]
+    } else {
+        ""
+    };
+    let attrs = parse_attrs(open_tag);
+
+    let rendered = match *name {
+        "Blockquote" => markdown_blockquote(&attrs, inner),
+        "VideoEmbed" => markdown_video(&attrs)?,
+        "PostTable" => markdown_table(&attrs)?,
+        "PostImage" => markdown_image(&attrs, imports, asset_url),
+        "Heading" => markdown_heading(&attrs, inner),
+        _ => return None,
+    };
+    Some((
+        leading + element_end,
+        format!("{}{}", &source[..leading], rendered),
+    ))
+}
+
+fn markdown_blockquote(attrs: &[(String, AttrValue)], inner: &str) -> String {
+    let author = text_attr(attrs, "author");
+    let source = text_attr(attrs, "source");
+    let source_url = text_attr(attrs, "sourceUrl");
+    let mut out = String::from("> ");
+    out.push_str(&smart_typography(inner.trim()).replace('\n', "\n> "));
+    out.push('\n');
+    if author.is_some() || source.is_some() {
+        let mut attribution = String::from("\n> \u{2014} ");
+        if let Some(author) = &author {
+            attribution.push_str(author);
+        }
+        if author.is_some() && source.is_some() {
+            attribution.push_str(", ");
+        }
+        if let Some(source) = &source {
+            match &source_url {
+                Some(url) => {
+                    attribution.push('[');
+                    attribution.push_str(source);
+                    attribution.push_str("](");
+                    attribution.push_str(url);
+                    attribution.push(')');
+                }
+                None => attribution.push_str(source),
+            }
+        }
+        out.push_str(&attribution);
+        out.push('\n');
+    }
+    out
+}
+
+fn markdown_video(attrs: &[(String, AttrValue)]) -> Option<String> {
+    let id = video_id(
+        text_attr(attrs, "videoId").as_deref(),
+        text_attr(attrs, "url").as_deref(),
+    )?;
+    let title = text_attr(attrs, "title").unwrap_or_else(|| "YouTube video".to_string());
+    Some(format!(
+        "[{title}](https://www.youtube.com/watch?v={id})\n"
+    ))
+}
+
+fn markdown_table(attrs: &[(String, AttrValue)]) -> Option<String> {
+    let headers = parse_js_string_list(expr_attr(attrs, "headers")?);
+    let rows = parse_js_string_grid(expr_attr(attrs, "rows")?);
+    if headers.is_empty() {
+        return None;
+    }
+    let mut out = String::new();
+    out.push_str("| ");
+    out.push_str(&headers.join(" | "));
+    out.push_str(" |\n| ");
+    out.push_str(&headers.iter().map(|_| "---").collect::<Vec<_>>().join(" | "));
+    out.push_str(" |\n");
+    for row in &rows {
+        out.push_str("| ");
+        let cells: Vec<&str> = (0..headers.len())
+            .map(|column| row.get(column).map_or("", String::as_str))
+            .collect();
+        out.push_str(&cells.join(" | "));
+        out.push_str(" |\n");
+    }
+    if let Some(caption) = text_attr(attrs, "caption") {
+        out.push('\n');
+        out.push_str(&caption);
+        out.push('\n');
+    }
+    Some(out)
+}
+
+fn markdown_image(
+    attrs: &[(String, AttrValue)],
+    imports: &BTreeMap<String, String>,
+    asset_url: &dyn Fn(&str) -> String,
+) -> String {
+    let raw_src = expr_attr(attrs, "src")
+        .and_then(|expr| imports.get(expr).cloned())
+        .or_else(|| text_attr(attrs, "src"));
+    let src = raw_src.map(|path| asset_url(&path)).unwrap_or_default();
+    let alt = text_attr(attrs, "alt").unwrap_or_default();
+    let mut out = format!("![{alt}]({src})\n");
+    if let Some(caption) = text_attr(attrs, "caption") {
+        out.push('\n');
+        out.push_str(&caption);
+        out.push('\n');
+    }
+    out
+}
+
+fn markdown_heading(attrs: &[(String, AttrValue)], inner: &str) -> String {
+    let level = text_attr(attrs, "as").unwrap_or_else(|| "h2".to_string());
+    let hashes = match level.as_str() {
+        "h1" => "#",
+        "h3" => "###",
+        "h4" => "####",
+        _ => "##",
+    };
+    format!("{hashes} {}\n", smart_typography(inner.trim()))
+}
+
+/// Collapse three or more newlines into one blank line, so a component's
+/// replacement cannot leave a gap where its own newlines met the source's.
+fn collapse_blank_lines(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut blank_run = 0usize;
+    for line in text.lines() {
+        if line.trim().is_empty() {
+            blank_run += 1;
+            if blank_run > 1 {
+                continue;
+            }
+            out.push('\n');
+            continue;
+        }
+        blank_run = 0;
+        out.push_str(line);
+        out.push('\n');
+    }
+    out.trim_end().to_string() + "\n"
+}
+
 /// Split off the leading `import` lines and map each local identifier to the
 /// path it was imported from.
 fn strip_imports(body: &str) -> (BTreeMap<String, String>, String) {

@@ -40,7 +40,7 @@ const CALENDAR_URL: &str =
     "https://calendar.proton.me/u/2/bookings#10S2zo5jm_rTCXVDnyi55vEBS9HN8Cam4w3HxHr5Omg=";
 
 /// The three operating principles: accent token, title, description.
-const PRINCIPLES: [(&str, &str, &str); 3] = [
+pub const PRINCIPLES: [(&str, &str, &str); 3] = [
     (
         "night-owl-cyan",
         "Hypothesis-first.",
@@ -58,7 +58,7 @@ const PRINCIPLES: [(&str, &str, &str); 3] = [
     ),
 ];
 
-const LANGUAGES: [&str; 10] = [
+pub const LANGUAGES: [&str; 10] = [
     "TypeScript",
     "JavaScript",
     "React",
@@ -71,7 +71,7 @@ const LANGUAGES: [&str; 10] = [
     "SQL",
 ];
 
-const STACK: [&str; 15] = [
+pub const STACK: [&str; 15] = [
     "TanStack Router",
     "TanStack Query",
     "Radix Themes",
@@ -89,7 +89,7 @@ const STACK: [&str; 15] = [
     "Microservices",
 ];
 
-const PRACTICES: [&str; 12] = [
+pub const PRACTICES: [&str; 12] = [
     "TDD (vitest, Playwright)",
     "DDD",
     "Monorepo",
@@ -178,6 +178,40 @@ fn projects(table: &toml::Table, key: &str) -> Result<Vec<Project>> {
             })
         })
         .collect()
+}
+
+/// The home page as markdown, for its `.md` twin.
+///
+/// The same facts the page renders, in the order the page presents them. The
+/// link row is left out: a markdown file is read for what the site says, and a
+/// list of profile URLs adds nothing a reader cannot get from the page.
+pub fn render_markdown(data: &HomeData) -> String {
+    // The title and the description are the twin's header, which the caller
+    // writes; repeating them here would print the name twice.
+    let mut out = format!("{KICKER}\n\n{TAGLINE}\n\n");
+    out.push_str("## Operating principles\n\n");
+    for (_, title, detail) in PRINCIPLES {
+        out.push_str(&format!("- **{title}** {detail}\n"));
+    }
+    out.push('\n');
+    out.push_str("## Toolkit\n\n");
+    out.push_str(&format!("- Languages: {}\n", LANGUAGES.join(", ")));
+    out.push_str(&format!("- Stack: {}\n", STACK.join(", ")));
+    out.push_str(&format!("- Practices: {}\n\n", PRACTICES.join(", ")));
+    out.push_str(&format!("## {SHIPPED_HEADING}\n\n"));
+    for project in data
+        .client_projects
+        .iter()
+        .chain(data.monorepo_projects.iter())
+    {
+        out.push_str(&format!("- **{}** {}", project.name, project.detail));
+        if let Some(unstick) = &project.unstick {
+            out.push(' ');
+            out.push_str(unstick);
+        }
+        out.push('\n');
+    }
+    out
 }
 
 /// Render the home page body. The site shell is [`crate::pages::render_doc`].

@@ -2,6 +2,7 @@
 
 use crate::html::{el, escape, raw, void_el};
 use crate::images::{PublishedImages, copy_static, publish_post_images};
+use crate::llms::{Document, Section};
 use anyhow::Context;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -35,9 +36,23 @@ pub struct Doc {
     /// page. It sits below the intro, so the preload scanner does not reach it
     /// until the HTML above it has been parsed - and that delay is charged to
     /// Largest Contentful Paint. Naming it here starts the request with the
-    /// stylesheet instead.
+    /// inline stylesheet instead.
     pub preload_image: Option<String>,
     pub body: String,
+}
+
+/// The machine-readable twins a page advertises in `<head>`.
+///
+/// A page is not the only way to read the site: every destination has a
+/// markdown version, and the blog's pages also point at the feed. Both are
+/// link relations rather than visible links, because a reader that wants them
+/// is a program.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Links<'a> {
+    /// The markdown twin, as a site path (`/blog/alpha/index.md`).
+    pub twin: Option<&'a str>,
+    /// Whether the page advertises the blog's RSS feed.
+    pub feed: bool,
 }
 
 pub const SITE: &str = "https://ethang.dev";
@@ -67,6 +82,44 @@ const NAV: [(&str, &str); 4] = [
     ("/learn", "Learn"),
 ];
 
+/// The stylesheet the build inlines into every page.
+///
+/// `static/styles/site.css` is the authored source. It is never published as a
+/// file: each page carries its own copy, minified and pruned to the rules it can
+/// actually match, so a page costs one request fewer and transfers no CSS it
+/// does not use. [`SiteStyles::for_page`] is the per-page transform.
+pub struct SiteStyles {
+    source: String,
+}
+
+impl SiteStyles {
+    /// Read the authored stylesheet from `static/styles/site.css`.
+    pub fn load() -> anyhow::Result<Self> {
+        let path = static_root().join(INLINED_STYLESHEET);
+        let source = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading the stylesheet {}", path.display()))?;
+        anyhow::ensure!(
+            !source.contains("</style"),
+            "{} contains `</style`, which would close the inlined element early",
+            path.display()
+        );
+        Ok(Self { source })
+    }
+
+    /// The stylesheet for one page: minified, and pruned to the rules whose
+    /// selectors can match `markup`.
+    ///
+    /// `markup` is the page rendered with no stylesheet in it. That is the
+    /// document the pruner has to judge, because the stylesheet's own text
+    /// contains every class name it styles and would keep every rule.
+    pub fn for_page(&self, markup: &str) -> String {
+        crate::css::minify_for(&self.source, markup)
+    }
+}
+
+/// The authored stylesheet, relative to `static/`. Not published as a file.
+pub const INLINED_STYLESHEET: &str = "styles/site.css";
+
 /// The description the home page advertises, and the one a 404 reuses.
 const HOME_DESCRIPTION: &str = "Software engineer and builder. I build resilient software, clarify complex domains, and leave systems easier to change.";
 
@@ -74,7 +127,19 @@ const HOME_DESCRIPTION: &str = "Software engineer and builder. I build resilient
 const NOT_FOUND_LINE: &str = "There is no page at this address. It may have moved, or it may never have existed. The two doors below are always open.";
 
 /// Wrap `doc` in the shared `<html>` shell: head metadata, site nav, footer.
-pub fn render_doc(doc: &Doc) -> String {
+///
+/// The stylesheet goes in last, as a `<style>` element, and only after the page
+/// has been composed once without it: the pruner has to see the document the
+/// styles are for, and the stylesheet's own text would otherwise keep every
+/// rule it names.
+pub fn render_doc(doc: &Doc, links: Links<'_>, styles: &SiteStyles) -> String {
+    let bare = render_shell(doc, links, "");
+    let css = styles.for_page(&bare);
+    crate::html::minify(&render_shell(doc, links, &css))
+}
+
+/// The page with `css` in its head, unminified.
+fn render_shell(doc: &Doc, links: Links<'_>, css: &str) -> String {
     let mut head = vec![
         void_el("meta", &[("charset", "utf-8")]),
         void_el(
@@ -87,9 +152,10 @@ pub fn render_doc(doc: &Doc) -> String {
         void_el("meta", &[("name", "theme-color"), ("content", "#011627")]),
         el("title", &[], &[escape(&doc.title)]),
         // Preload the two faces the first screenful actually uses, so they are
-        // in flight before the CSS is even parsed and usually land before first
-        // paint. `crossorigin` is required on a font preload even same-origin:
-        // without it the browser fetches the file twice and the preload is wasted.
+        // in flight before the stylesheet is even parsed and usually land before
+        // first paint. `crossorigin` is required on a font preload even
+        // same-origin: without it the browser fetches the file twice and the
+        // preload is wasted.
         void_el(
             "link",
             &[
@@ -110,11 +176,42 @@ pub fn render_doc(doc: &Doc) -> String {
                 ("crossorigin", "anonymous"),
             ],
         ),
-        void_el(
-            "link",
-            &[("rel", "stylesheet"), ("href", "/styles/site.css")],
-        ),
     ];
+    // The spec's link relations: `alternate` names this page's markdown twin,
+    // `describedby` names the `llms.txt` that covers it. A reader that follows
+    // either finds the whole site in the form it wants.
+    if let Some(twin) = links.twin {
+        head.push(void_el(
+            "link",
+            &[
+                ("rel", "alternate"),
+                ("type", "text/markdown"),
+                ("href", twin),
+            ],
+        ));
+    }
+    head.push(void_el(
+        "link",
+        &[
+            ("rel", "describedby"),
+            ("type", "text/markdown"),
+            ("href", "/llms.txt"),
+        ],
+    ));
+    if links.feed {
+        head.push(void_el(
+            "link",
+            &[
+                ("rel", "alternate"),
+                ("type", "application/rss+xml"),
+                ("title", "ethang.dev"),
+                ("href", crate::rss::FEED_PATH),
+            ],
+        ));
+    }
+    if !css.is_empty() {
+        head.push(el("style", &[], &[raw(css)]));
+    }
     if let Some(image) = &doc.preload_image {
         head.push(void_el(
             "link",
@@ -256,6 +353,7 @@ pub fn static_root() -> std::path::PathBuf {
 pub fn build_site(out: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(out)?;
     let root = content_root();
+    let styles = SiteStyles::load()?;
 
     // Load every input before writing any output, so a content error costs
     // nothing and a half-written site is impossible.
@@ -269,7 +367,10 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
     copy_static(&static_root(), out)?;
 
     let mut routes: Vec<(String, Option<i64>)> = Vec::new();
+    // Every page's markdown twin, in the order `llms.txt` lists them.
+    let mut documents: Vec<Document> = Vec::new();
 
+    let home_markdown = home::render_markdown(&home_data);
     let home_doc = Doc {
         title: "Ethan Glover".into(),
         description: Some(HOME_DESCRIPTION.into()),
@@ -278,25 +379,93 @@ pub fn build_site(out: &Path) -> anyhow::Result<()> {
         preload_image: None,
         body: home::render(&home_data),
     };
-    write_page(&out.join("index.html"), &home_doc)?;
+    write_page(&out.join("index.html"), &home_doc, HOME_LINKS, &styles)?;
+    write_twin(out, "/index.md", &home_doc, &home_markdown)?;
+    documents.push(Document {
+        section: Section::Pages,
+        title: "Ethan Glover".into(),
+        path: "/index.md".into(),
+        note: "Who this is, the principles the work follows, and what has shipped.".into(),
+        body: home_markdown,
+    });
     routes.push(("/".into(), None));
 
-    write_blog(out, &posts, &assets, &mut routes)?;
+    write_blog(out, &posts, &assets, &styles, &mut routes, &mut documents)?;
 
+    let learn_markdown = learn::render_markdown(&stages);
     let learn_doc = learn::learn_doc(&stages);
-    write_page(&out.join("learn/index.html"), &learn_doc)?;
+    write_page(&out.join("learn/index.html"), &learn_doc, LEARN_LINKS, &styles)?;
+    write_twin(out, "/learn/index.md", &learn_doc, &learn_markdown)?;
+    documents.push(Document {
+        section: Section::Pages,
+        title: "Learn".into(),
+        path: "/learn/index.md".into(),
+        note: "A ten-stage curriculum for people who write software with AI assistance, each stage ending in a check that it landed.".into(),
+        body: learn_markdown,
+    });
     routes.push(("/learn".into(), None));
 
-    write_tips(out, &tips, &mut routes)?;
+    write_tips(out, &tips, &styles, &mut routes, &mut documents)?;
 
-    write_text(&out.join("404.html"), &render_doc(&not_found_doc()))?;
-    // The 404 is served by the host, not linked, so it stays out of `routes`.
+    // The 404 is served by the host, not linked: it is not a destination, so it
+    // has no markdown twin, stays out of `routes`, and is absent from `llms.txt`.
+    write_text(
+        &out.join("404.html"),
+        &render_doc(&not_found_doc(), Links::default(), &styles),
+    )?;
+
+    write_text(
+        &out.join("blog/feed.xml"),
+        &crate::rss::render(&posts, &blog::post_description),
+    )?;
     write_text(&out.join("sitemap.xml"), &sitemap::render(&routes))?;
     write_text(&out.join("robots.txt"), sitemap::ROBOTS)?;
     // The host answers these before it looks for a file, so the file is the
     // whole implementation: no page is written for either path.
     write_text(&out.join("_redirects"), REDIRECTS)?;
+    write_text(&out.join("llms.txt"), &crate::llms::render(&documents))?;
+    write_text(
+        &out.join("llms-full.txt"),
+        &crate::llms::render_full(&documents),
+    )?;
     Ok(())
+}
+
+/// The links the home page advertises: its markdown twin, and no feed.
+const HOME_LINKS: Links = Links {
+    twin: Some("/index.md"),
+    feed: false,
+};
+
+/// The links the Learn page advertises.
+const LEARN_LINKS: Links = Links {
+    twin: Some("/learn/index.md"),
+    feed: false,
+};
+
+/// The links a blog page advertises: its markdown twin and the feed.
+const BLOG_LINKS: Links = Links {
+    twin: Some("/blog/index.md"),
+    feed: true,
+};
+
+/// Write a page's markdown twin at a site path.
+///
+/// The twin is the title, the canonical URL, the description, and the body. The
+/// URL is in the file because a markdown file is read out of its original
+/// context far more often than a page is - a reader that fetched one has no
+/// address bar to tell it where it came from.
+fn write_twin(out: &Path, path: &str, doc: &Doc, body: &str) -> anyhow::Result<()> {
+    let mut text = format!("# {}\n\n", doc.title);
+    if let Some(canonical) = &doc.canonical {
+        text.push_str(&format!("{canonical}\n\n"));
+    }
+    if let Some(description) = &doc.description {
+        text.push_str(&format!("> {description}\n\n"));
+    }
+    text.push_str(body.trim());
+    text.push('\n');
+    write_text(&out.join(path.trim_start_matches('/')), &text)
 }
 
 /// Publish every post's images into `out/images/blog/<slug>/`, returning the
@@ -344,11 +513,23 @@ fn publish_images(
 fn write_tips(
     out: &Path,
     tips: &[tips::Tip],
+    styles: &SiteStyles,
     routes: &mut Vec<(String, Option<i64>)>,
+    documents: &mut Vec<Document>,
 ) -> anyhow::Result<()> {
     let metas: Vec<tips::TipMeta> = tips.iter().map(tips::Tip::meta).collect();
     let tips_dir = out.join("tips");
-    write_page(&tips_dir.join("index.html"), &tips::index_doc(&metas))?;
+    let index_doc = tips::index_doc(&metas);
+    let index_markdown = tips::render_markdown(&metas);
+    write_page(&tips_dir.join("index.html"), &index_doc, TIPS_LINKS, styles)?;
+    write_twin(out, "/tips/index.md", &index_doc, &index_markdown)?;
+    documents.push(Document {
+        section: Section::Tips,
+        title: "Tips".into(),
+        path: "/tips/index.md".into(),
+        note: "Small, self-contained solutions to sharp edges.".into(),
+        body: index_markdown,
+    });
     routes.push(("/tips".into(), None));
     for tip in tips {
         // A tip has no images of its own, so its assets resolve the plain way:
@@ -359,11 +540,34 @@ fn write_tips(
             &render_ctx(&tip.slug, &resolve, &|_| None),
         );
         let doc = tips::tip_doc(tip, &body);
-        write_page(&tips_dir.join(&tip.slug).join("index.html"), &doc)?;
+        let twin = tips::twin_path(&tip.slug);
+        let links = Links {
+            twin: Some(&twin),
+            feed: false,
+        };
+        write_page(&tips_dir.join(&tip.slug).join("index.html"), &doc, links, styles)?;
+        let markdown = crate::markdown::render_markdown_source(&tip.body, &resolve);
+        write_twin(out, &twin, &doc, &markdown)?;
+        documents.push(Document {
+            section: Section::Tips,
+            title: tip.title.clone(),
+            path: twin,
+            note: tip
+                .description
+                .clone()
+                .unwrap_or_else(|| format!("A tip about {}.", tip.title)),
+            body: markdown,
+        });
         routes.push((tips::tip_href(&tip.slug), None));
     }
     Ok(())
 }
+
+/// The links the tips index advertises.
+const TIPS_LINKS: Links = Links {
+    twin: Some("/tips/index.md"),
+    feed: false,
+};
 
 /// The 404 page: the site shell with an apology and two ways back in.
 ///
@@ -430,8 +634,13 @@ pub fn not_found_doc() -> Doc {
 pub const REDIRECTS: &str = "/courses/    /learn    301\n/courses     /learn    301\n";
 
 /// Write one rendered document, creating the directories it needs.
-fn write_page(path: &Path, doc: &Doc) -> anyhow::Result<()> {
-    write_text(path, &render_doc(doc))
+fn write_page(
+    path: &Path,
+    doc: &Doc,
+    links: Links<'_>,
+    styles: &SiteStyles,
+) -> anyhow::Result<()> {
+    write_text(path, &render_doc(doc, links, styles))
 }
 
 /// Write one file, creating the directories it needs.
@@ -452,10 +661,22 @@ fn write_blog(
     out: &Path,
     posts: &[crate::content::Post],
     assets: &BTreeMap<String, PublishedImages>,
+    styles: &SiteStyles,
     routes: &mut Vec<(String, Option<i64>)>,
+    documents: &mut Vec<Document>,
 ) -> anyhow::Result<()> {
     let blog_dir = out.join("blog");
-    write_page(&blog_dir.join("index.html"), &blog::index_doc(posts, 1))?;
+    let first = blog::index_doc(posts, 1);
+    let index_markdown = blog::render_index_markdown(posts);
+    write_page(&blog_dir.join("index.html"), &first, BLOG_LINKS, styles)?;
+    write_twin(out, "/blog/index.md", &first, &index_markdown)?;
+    documents.push(Document {
+        section: Section::Writing,
+        title: "Blog".into(),
+        path: "/blog/index.md".into(),
+        note: "Every post, newest first, with the date and one line about each.".into(),
+        body: index_markdown,
+    });
     routes.push(("/blog".into(), None));
     for page in 2..=crate::content::max_pages(posts.len()) {
         let doc = blog::index_doc(posts, page);
@@ -465,6 +686,8 @@ fn write_blog(
                 .join(page.to_string())
                 .join("index.html"),
             &doc,
+            BLOG_LINKS,
+            styles,
         )?;
         routes.push((crate::content::page_href(page), None));
     }
@@ -477,7 +700,21 @@ fn write_blog(
             &render_ctx(&post.slug, &resolve, &size),
         );
         let doc = blog::post_doc(post, &body);
-        write_page(&blog_dir.join(&post.slug).join("index.html"), &doc)?;
+        let twin = format!("/blog/{}/index.md", post.slug);
+        let links = Links {
+            twin: Some(&twin),
+            feed: true,
+        };
+        write_page(&blog_dir.join(&post.slug).join("index.html"), &doc, links, styles)?;
+        let markdown = crate::markdown::render_markdown_source(&post.body, &resolve);
+        write_twin(out, &twin, &doc, &markdown)?;
+        documents.push(Document {
+            section: Section::Writing,
+            title: post.title.clone(),
+            path: twin,
+            note: blog::post_description(post),
+            body: markdown,
+        });
         routes.push((
             format!("/blog/{}", post.slug),
             Some(post.updated_date.unwrap_or(post.pub_date)),
@@ -519,6 +756,13 @@ fn post_asset_url(slug: &str, published: Option<&PublishedImages>, path: &str) -
 mod tests {
     use super::*;
 
+    /// The real stylesheet, read once: the shell tests are about the shell,
+    /// not about the CSS, but the CSS is inlined into it now.
+    fn styles() -> &'static SiteStyles {
+        static STYLES: std::sync::OnceLock<SiteStyles> = std::sync::OnceLock::new();
+        STYLES.get_or_init(|| SiteStyles::load().unwrap())
+    }
+
     #[test]
     fn shell_has_doctype_lang_and_stylesheet() {
         let doc = Doc {
@@ -529,10 +773,10 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         assert!(html.starts_with("<!doctype html>"));
         assert!(html.contains("<html lang=\"en\">"));
-        assert!(html.contains("href=\"/styles/site.css\""));
+        assert!(html.contains("<style>"));
     }
 
     #[test]
@@ -545,7 +789,7 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        assert!(render_doc(&doc).contains("<title>a &amp; b</title>"));
+        assert!(render_doc(&doc, Links::default(), styles()).contains("<title>a &amp; b</title>"));
     }
 
     #[test]
@@ -558,7 +802,7 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        assert!(!render_doc(&doc).contains("name=\"description\""));
+        assert!(!render_doc(&doc, Links::default(), styles()).contains("name=\"description\""));
     }
 
     #[test]
@@ -571,7 +815,7 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         assert!(html.contains("<meta name=\"description\" content=\"a &amp; b\">"));
         assert!(html.contains("<link rel=\"canonical\" href=\"https://ethang.dev/x\">"));
     }
@@ -586,7 +830,7 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         for href in ["/blog", "/tips", "/learn"] {
             assert!(
                 html.contains(&format!("href=\"{href}\"")),
@@ -617,7 +861,7 @@ mod tests {
         preload_image: None,
             body: "<p>hi</p>".into(),
         };
-        assert!(render_doc(&doc).contains("<main><p>hi</p></main>"));
+        assert!(render_doc(&doc, Links::default(), styles()).contains("<main><p>hi</p></main>"));
     }
 
     #[test]
@@ -662,7 +906,7 @@ mod tests {
         preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         assert!(html.contains("<meta property=\"og:type\" content=\"website\">"));
         assert!(!html.contains("article:published_time"));
     }
@@ -680,7 +924,7 @@ mod tests {
             preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         assert!(html.contains("<meta property=\"og:type\" content=\"article\">"));
         assert!(html.contains(
             "<meta property=\"article:published_time\" content=\"2024-01-02T00:00:00.000Z\">"
@@ -703,7 +947,7 @@ mod tests {
             preload_image: None,
             body: String::new(),
         };
-        let html = render_doc(&doc);
+        let html = render_doc(&doc, Links::default(), styles());
         assert!(html.contains("article:published_time"));
         assert!(!html.contains("article:modified_time"));
     }
@@ -736,10 +980,19 @@ mod tests {
             "404.html",
             "sitemap.xml",
             "robots.txt",
-            "styles/site.css",
+            "llms.txt",
+            "llms-full.txt",
+            "index.md",
+            "blog/feed.xml",
+            "blog/index.md",
+            "blog/after-spawn-returns/index.md",
+            "learn/index.md",
+            "tips/index.md",
         ] {
             assert!(out.join(path).exists(), "missing {path}");
         }
+        // The authored stylesheet is inlined, never published.
+        assert!(!out.join("styles/site.css").exists());
     }
 
     #[test]
