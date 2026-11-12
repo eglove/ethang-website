@@ -5,8 +5,9 @@
  * build step: this file is served as written.
  *
  * Fonts are self-hosted woff2 files in static/fonts/ (latin subset, downloaded
- * from the Fontsource CDN). No local() fallbacks: the file is self-contained and
- * renders identically everywhere.
+ * from the Fontsource CDN). The woff2 files themselves carry no local() source,
+ * so the bytes are identical everywhere; the metric-matched fallback families
+ * below are what keeps the swap from moving the page.
  */
 
 @font-face {
@@ -49,6 +50,246 @@
   src: url("/fonts/jetbrains-mono-700.woff2") format("woff2");
 }
 
+/* ── Metric-matched fallbacks ──────────────────────────────────────
+ *
+ * `font-display: swap` paints a fallback immediately and swaps in Inter when the
+ * woff2 lands. Inter and the system UI faces disagree about both advance width
+ * and line box, so that swap reflowed every line of text on the page - the
+ * layout shift these rules remove.
+ *
+ * Each rule re-sizes a local face to Inter's metrics so the swap is invisible:
+ * `size-adjust` scales the glyphs and with them the advance widths, while
+ * `ascent-override` / `descent-override` replace the line box. The override
+ * percentages are pre-divided by size-adjust because the browser multiplies the
+ * two - the effective values are Inter's own 96.88% / 24.12%.
+ *
+ * The numbers are per weight, not per family: Segoe UI's medium is a separate
+ * file from its regular and is proportionally wider, so a single size-adjust
+ * cannot hold both. Rules sharing a family and weight are tried in order and the
+ * first whose local() resolves wins, which is how each platform gets numbers
+ * tuned for its own face. Every value is measured from the real fonts.
+ */
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 400;
+  src: local("Segoe UI");
+  size-adjust: 107.53%;
+  ascent-override: 90.1%;
+  descent-override: 22.43%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 400;
+  src: local("Roboto");
+  size-adjust: 107.38%;
+  ascent-override: 90.22%;
+  descent-override: 22.46%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 400;
+  src: local("Helvetica Neue"), local("Arial");
+  size-adjust: 107.22%;
+  ascent-override: 90.35%;
+  descent-override: 22.49%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 400;
+  src: local("Noto Sans");
+  size-adjust: 101.07%;
+  ascent-override: 95.85%;
+  descent-override: 23.86%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 400;
+  src: local("DejaVu Sans");
+  size-adjust: 93.84%;
+  ascent-override: 103.24%;
+  descent-override: 25.7%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 500;
+  src: local("Segoe UI");
+  size-adjust: 104.16%;
+  ascent-override: 93.01%;
+  descent-override: 23.16%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 500;
+  src: local("Roboto");
+  size-adjust: 107.38%;
+  ascent-override: 90.22%;
+  descent-override: 22.46%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 500;
+  src: local("Helvetica Neue"), local("Arial");
+  size-adjust: 107.22%;
+  ascent-override: 90.35%;
+  descent-override: 22.49%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 500;
+  src: local("Noto Sans");
+  size-adjust: 101.07%;
+  ascent-override: 95.85%;
+  descent-override: 23.86%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 500;
+  src: local("DejaVu Sans");
+  size-adjust: 93.84%;
+  ascent-override: 103.24%;
+  descent-override: 25.7%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600;
+  src: local("Segoe UI");
+  size-adjust: 106.22%;
+  ascent-override: 91.21%;
+  descent-override: 22.71%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600;
+  src: local("Roboto");
+  size-adjust: 109.5%;
+  ascent-override: 88.48%;
+  descent-override: 22.03%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600;
+  src: local("Helvetica Neue"), local("Arial");
+  size-adjust: 101%;
+  ascent-override: 95.92%;
+  descent-override: 23.88%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600;
+  src: local("Noto Sans");
+  size-adjust: 96.75%;
+  ascent-override: 100.13%;
+  descent-override: 24.93%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 600;
+  src: local("DejaVu Sans");
+  size-adjust: 84.45%;
+  ascent-override: 114.71%;
+  descent-override: 28.56%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 700;
+  src: local("Segoe UI");
+  size-adjust: 103.17%;
+  ascent-override: 93.9%;
+  descent-override: 23.38%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 700;
+  src: local("Roboto");
+  size-adjust: 110.54%;
+  ascent-override: 87.64%;
+  descent-override: 21.82%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 700;
+  src: local("Helvetica Neue"), local("Arial");
+  size-adjust: 101.97%;
+  ascent-override: 95.01%;
+  descent-override: 23.65%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 700;
+  src: local("Noto Sans");
+  size-adjust: 97.68%;
+  ascent-override: 99.18%;
+  descent-override: 24.69%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Inter Fallback";
+  font-weight: 700;
+  src: local("DejaVu Sans");
+  size-adjust: 85.26%;
+  ascent-override: 113.63%;
+  descent-override: 28.29%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Mono Fallback";
+  font-weight: 400 700;
+  src: local("Consolas");
+  size-adjust: 109.13%;
+  ascent-override: 93.47%;
+  descent-override: 27.49%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: "Mono Fallback";
+  font-weight: 400 700;
+  src: local("Menlo"), local("DejaVu Sans Mono"), local("Courier New");
+  size-adjust: 99.66%;
+  ascent-override: 102.35%;
+  descent-override: 30.1%;
+  line-gap-override: 0%;
+}
+
 :root {
   color-scheme: dark;
 
@@ -82,8 +323,8 @@
   --on-primary: var(--night-owl-bg);
 
   /* ── Typography families ───────────────────────────────────────────── */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Inter", "Inter Fallback", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Mono Fallback", ui-monospace, monospace;
 
   /* ── Type scale (size / line-height) ───────────────────────────────── */
   --text-xs: 0.75rem;

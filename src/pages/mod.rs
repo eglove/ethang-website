@@ -60,6 +60,30 @@ pub fn render_doc(doc: &Doc) -> String {
         ),
         void_el("meta", &[("name", "theme-color"), ("content", "#011627")]),
         el("title", &[], &[escape(&doc.title)]),
+        // Preload the two faces the first screenful actually uses, so they are
+        // in flight before the CSS is even parsed and usually land before first
+        // paint. `crossorigin` is required on a font preload even same-origin:
+        // without it the browser fetches the file twice and the preload is wasted.
+        void_el(
+            "link",
+            &[
+                ("rel", "preload"),
+                ("href", "/fonts/inter-400.woff2"),
+                ("as", "font"),
+                ("type", "font/woff2"),
+                ("crossorigin", "anonymous"),
+            ],
+        ),
+        void_el(
+            "link",
+            &[
+                ("rel", "preload"),
+                ("href", "/fonts/inter-600.woff2"),
+                ("as", "font"),
+                ("type", "font/woff2"),
+                ("crossorigin", "anonymous"),
+            ],
+        ),
         void_el(
             "link",
             &[("rel", "stylesheet"), ("href", "/styles/site.css")],
